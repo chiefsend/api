@@ -22,4 +22,4 @@ media/
 *.swp
 
 # IDE
-idea/
+.idea/
