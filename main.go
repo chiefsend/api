@@ -1,25 +1,16 @@
 package main
 
 import (
+	g "chiefsend-api/globals"
+	m "chiefsend-api/models"
 	"encoding/json"
 	"fmt"
-	"gorm.io/gorm"
+	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"log"
+	"net/http"
 	"os"
 )
-
-var config = struct {
-	port      int
-	mediaDir  string
-	chunkSize int64
-	redisAddr string
-}{
-	port:      6969,
-	mediaDir:  os.Getenv("MEDIA_DIR"),
-	chunkSize: 10 << 20, // 10 MB
-	redisAddr: "127.0.0.1:6379",
-}
-var db *gorm.DB = nil
 
 func main() {
 	// setup logging
@@ -30,29 +21,49 @@ func main() {
 	defer file.Close()
 	log.SetOutput(file)
 	// load configuration
-	// TODO
+	g.LoadConfig()
 	// set database connection
-	database, err := GetDatabase()
+	database, err := m.GetDatabase()
 	if err != nil || database == nil {
 		log.Fatal("Cannot connect database")
 	}
-	// Migrate the schema
-	err = database.AutoMigrate(&Share{})
-	if err != nil {
-		log.Fatal("Cannot migrate database")
-	}
-	err = database.AutoMigrate(&Attachment{})
-	if err != nil {
-		log.Fatal("Cannot migrate database")
-	}
-	db = database
-	if db == nil {
+	g.Db = database
+	if g.Db == nil {
 		log.Fatal("Can't connect to database")
+	}
+	// Migrate the schema
+	err = g.Db.AutoMigrate(&m.Share{})
+	if err != nil {
+		log.Fatal("Cannot migrate database")
+	}
+	err = g.Db.AutoMigrate(&m.Attachment{})
+	if err != nil {
+		log.Fatal("Cannot migrate database")
 	}
 	// background job server
 	go StartBackgroundWorker()
+	// setup routes
 	ConfigureRoutes()
 }
+
+func ConfigureRoutes() {
+	router := mux.NewRouter().StrictSlash(true)
+	handler := cors.Default().Handler(router)
+
+	router.Handle("/shares", endpointREST(AllShares)).Methods("GET")
+	router.Handle("/shares", endpointREST(OpenShare)).Methods("POST")
+
+	router.Handle("/share/{id}", endpointREST(GetShare)).Methods("GET")
+	router.Handle("/share/{id}", endpointREST(CloseShare)).Methods("POST")
+
+	router.Handle("/share/{id}/attachments", endpointREST(UploadAttachment)).Methods("POST")
+
+	router.Handle("/share/{id}/attachment/{att}", endpointREST(DownloadFile)).Methods("GET")
+	router.Handle("/share/{id}/zip", endpointREST(DownloadZip)).Methods("GET")
+
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", g.Conf.Port), handler))
+}
+
 
 func PrettyPrint(i interface{}) {
 	b, err := json.MarshalIndent(i, "", "  ")

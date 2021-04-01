@@ -1,12 +1,13 @@
 package main
 
 import (
+	g "chiefsend-api/globals"
 	"github.com/hibiken/asynq"
 	"log"
 )
 
 func StartBackgroundWorker() {
-	r := asynq.RedisClientOpt{Addr: "localhost:6379"}
+	r := asynq.RedisClientOpt{Addr: g.Conf.RedisAddr}
 	srv := asynq.NewServer(r, asynq.Config{
 		Concurrency: 10,
 	})

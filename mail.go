@@ -3,6 +3,8 @@
 package main
 
 import (
+	g "chiefsend-api/globals"
+	m "chiefsend-api/models"
 	"errors"
 	"os"
 	"strings"
@@ -12,8 +14,8 @@ import (
 )
 
 func SendMail(shareId string) error {
-	var sh Share
-	err := db.Where("ID = ?", shareId).First(&sh).Error
+	var sh m.Share
+	err := g.Db.Where("ID = ?", shareId).First(&sh).Error
 	if err != nil {
 		return err
 	}

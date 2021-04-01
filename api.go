@@ -2,17 +2,17 @@ package main
 
 import (
 	"archive/zip"
+	g "chiefsend-api/globals"
+	m "chiefsend-api/models"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hibiken/asynq"
-	"github.com/rs/cors"
 	"gorm.io/gorm"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,8 +39,8 @@ func (fn endpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //////////// routes /////////////
 /////////////////////////////////
 func AllShares(w http.ResponseWriter, _ *http.Request) *HTTPError {
-	var shares []Share
-	err := db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
+	var shares []m.Share
+	err := g.Db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
@@ -54,10 +54,10 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
 
-	var share Share
-	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
+	var share m.Share
+	err = g.Db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &HTTPError{err, "Record not found", 404}
+		return &HTTPError{err, "record not found", 404}
 	}
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
@@ -90,8 +90,9 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-	var att Attachment
-	err = db.Where("id = ?", attID.String()).First(&att).Error
+
+	var att m.Attachment
+	err = g.Db.Where("id = ?", attID.String()).First(&att).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
@@ -99,13 +100,20 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
 
-	var share Share
-	err = db.Where("id = ?", att.ShareID.String()).First(&share).Error
+	if att.ShareID != shareID {
+		return &HTTPError{errors.New("share doesent match attachment"), "share doesent match attachment", 400}
+	}
+
+	var share m.Share
+	err = g.Db.Where("id = ?", att.ShareID.String()).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
+	}
+	if share.IsTemporary == true {
+		return &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
 	}
 
 	// auth
@@ -120,26 +128,25 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", att.Filename))
-	http.ServeFile(w, r, filepath.Join(config.mediaDir, "data", shareID.String(), attID.String()))
+	http.ServeFile(w, r, filepath.Join(g.Conf.MediaDir, "data", shareID.String(), attID.String()))
 	return nil
 }
 
 func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
-	// parse body
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return &HTTPError{err, "Request does not contain a valid body", 400}
 	}
-	var newShare Share
+
+	var newShare m.Share
 	err = json.Unmarshal(reqBody, &newShare)
 	if err != nil {
 		return &HTTPError{err, "Can't parse body", 400}
 	}
+	// setup and store it
 	newShare.Attachments = nil // dont want attachments yet
-
-	// create temporary db entry
 	newShare.IsTemporary = true
-	err = db.Create(&newShare).Error
+	err = g.Db.Create(&newShare).Error
 	if err != nil {
 		return &HTTPError{err, "Can't create data", 500}
 	}
@@ -153,47 +160,51 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-	// get stuff
-	var share Share
-	err = db.Where("id = ?", shareID.String()).First(&share).Error
+
+	var share m.Share
+	err = g.Db.Where("id = ?", shareID.String()).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
+	if share.IsTemporary == false { // already closed
+		return nil
+	}
 
 	// move files to permanent location
-	oldPath := filepath.Join(config.mediaDir, "temp", shareID.String())
-	newPath := filepath.Join(config.mediaDir, "data", shareID.String())
+	oldPath := filepath.Join(g.Conf.MediaDir, "temp", shareID.String())
+	newPath := filepath.Join(g.Conf.MediaDir, "data", shareID.String())
 	err = os.Rename(oldPath, newPath)
 	if err != nil {
 		return &HTTPError{err, "Can't move directory", 500}
 	}
-
 	// set stuff permanent
 	share.IsTemporary = false
-	err = db.Save(&share).Error
+	err = g.Db.Save(&share).Error
 	if err != nil {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
+
 	// run some background jobs
-	redis := asynq.RedisClientOpt{Addr: config.redisAddr}
+	redis := asynq.RedisClientOpt{Addr: g.Conf.RedisAddr}
 	client := asynq.NewClient(redis)
 	// send email
-	task1 := NewShareEmailTask(share)
-	_, err = client.Enqueue(task1)
+	mailTask := NewShareEmailTask(share)
+	_, err = client.Enqueue(mailTask)
 	if err != nil {
 		return &HTTPError{err, "Can't start background task", 500}
 	}
 	// delete share
 	if share.Expires != nil {
-		task2 := NewDeleteShareTaks(share)
-		_, err = client.Enqueue(task2, asynq.ProcessAt(*share.Expires))
+		deleteTask := NewDeleteShareTaks(share)
+		_, err = client.Enqueue(deleteTask, asynq.ProcessAt(*share.Expires))
 		if err != nil {
 			return &HTTPError{err, "Can't start background task", 500}
 		}
 	}
+
 	return SendJSON(w, share)
 }
 
@@ -203,21 +214,21 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-	// get share
-	var share Share
-	err = db.Where("id = ?", shareID.String()).First(&share).Error
+
+	var share m.Share
+	err = g.Db.Where("id = ?", shareID.String()).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-	if share.IsTemporary != true {
+	if share.IsTemporary == false {
 		return &HTTPError{errors.New("share is not finalized"), "Can't upload to finalized Shares.", 403}
 	}
 
 	// Parse file from body
-	err = r.ParseMultipartForm(config.chunkSize) // Maximum 10 MB in RAM
+	err = r.ParseMultipartForm(g.Conf.ChunkSize)
 	if err != nil {
 		return &HTTPError{err, "Request does not contain a valid body (parsing form)", 400}
 	}
@@ -227,30 +238,26 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	defer file.Close()
 
-	var att Attachment
+	var att m.Attachment
 	{
-		// add db entry // TODO error handling for whole transaction
-		db.Begin()
-		sid, err := uuid.Parse(shareID.String())
-		if err != nil {
-			return &HTTPError{err, "foreign key shareID not valid", 500}
-		}
-		att.ShareID = sid
+		// add database entry // TODO error handling for whole transaction
+		g.Db.Begin()
+		att.ShareID = shareID
 		att.Filename = handler.Filename
 		att.Filesize = handler.Size
-		db.Create(&att)
+		g.Db.Create(&att)
 
 		// save file
 		fileBytes, err := ioutil.ReadAll(file)
 		if err != nil {
 			return &HTTPError{err, "cant read file", 500}
 		}
-		err = ioutil.WriteFile(filepath.Join(config.mediaDir, "temp", sid.String(), att.ID.String()), fileBytes, os.ModePerm)
+		err = ioutil.WriteFile(filepath.Join(g.Conf.MediaDir, "temp", shareID.String(), att.ID.String()), fileBytes, os.ModePerm)
 		if err != nil {
-			db.Rollback()
+			g.Db.Rollback()
 			return &HTTPError{err, "cant save file", 500}
 		}
-		db.Commit()
+		g.Db.Commit()
 	}
 
 	return SendJSON(w, att)
@@ -263,8 +270,8 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
 
-	var share Share
-	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
+	var share m.Share
+	err = g.Db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
@@ -277,7 +284,7 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 
 	zipWriter := zip.NewWriter(w)
 	for _, file := range share.Attachments {
-		filePath := filepath.Join(config.mediaDir, "data", file.ShareID.String(), file.ID.String())
+		filePath := filepath.Join(g.Conf.MediaDir, "data", file.ShareID.String(), file.ID.String())
 
 		fileToZip, err := os.Open(filePath)
 		if err != nil {
@@ -320,23 +327,6 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 /////////////////////////////////
 ////////// functions ////////////
 /////////////////////////////////
-func ConfigureRoutes() {
-	router := mux.NewRouter().StrictSlash(true)
-	handler := cors.Default().Handler(router)
-
-	router.Handle("/shares", endpointREST(AllShares)).Methods("GET")
-	router.Handle("/shares", endpointREST(OpenShare)).Methods("POST")
-
-	router.Handle("/share/{id}", endpointREST(GetShare)).Methods("GET")
-	router.Handle("/share/{id}", endpointREST(CloseShare)).Methods("POST")
-
-	router.Handle("/share/{id}/attachments", endpointREST(UploadAttachment)).Methods("POST")
-
-	router.Handle("/share/{id}/attachment/{att}", endpointREST(DownloadFile)).Methods("GET")
-	router.Handle("/share/{id}/zip", endpointREST(DownloadZip)).Methods("GET")
-
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.port), handler))
-}
 
 func SendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
 	w.Header().Set("Content-Type", "application/json")

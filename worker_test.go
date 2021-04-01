@@ -1,6 +1,8 @@
 package main
 
 import (
+	g "chiefsend-api/globals"
+	m "chiefsend-api/models"
 	"errors"
 	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/assert"
@@ -12,7 +14,7 @@ import (
 func TestDeleteShareTaks(t *testing.T) {
 	Reset()
 	// test client
-	r := asynq.RedisClientOpt{Addr: config.redisAddr}
+	r := asynq.RedisClientOpt{Addr: g.Conf.RedisAddr}
 	client := asynq.NewClient(r)
 
 	task := NewDeleteShareTaks(shares[0])
@@ -20,7 +22,7 @@ func TestDeleteShareTaks(t *testing.T) {
 	_, err := client.Enqueue(task)
 	assert.Nil(t, err)
 	time.Sleep(3 * time.Second)
-	var sh Share
-	err = db.Where("ID = ?", shares[0].ID.String()).First(&sh).Error
+	var sh m.Share
+	err = g.Db.Where("ID = ?", shares[0].ID.String()).First(&sh).Error
 	assert.False(t, errors.Is(err, gorm.ErrRecordNotFound))
 }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	g "chiefsend-api/globals"
+	m "chiefsend-api/models"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -20,7 +22,7 @@ import (
 )
 
 // DATA
-var shares = []Share{
+var shares = []m.Share{
 	{
 		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
 		Name:          "TestFinalPrivate",
@@ -30,12 +32,11 @@ var shares = []Share{
 		Password:      "test123",
 		Emails:        []string{""},
 
-		Attachments: []Attachment{
+		Attachments: []m.Attachment{
 			{
 				ID:          uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
 				Filename:    "kekw.txt",
 				Filesize:    123456,
-				IsEncrypted: false,
 				ShareID:     uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
 			},
 		},
@@ -58,26 +59,26 @@ var shares = []Share{
 }
 
 func Reset() {
-	database, err := GetDatabase()
+	database, err := m.GetDatabase()
 	if err != nil {
 		log.Fatal("database brok")
 	}
-	db = database
-	db.AutoMigrate(&Share{})
-	db.AutoMigrate(&Attachment{})
+	g.Db = database
+	g.Db.AutoMigrate(&m.Share{})
+	g.Db.AutoMigrate(&m.Attachment{})
 	// delete everything
-	db.Where("1 = 1").Delete(&Share{})
-	db.Where("1 = 1").Delete(&Attachment{})
-	os.RemoveAll(filepath.Join(config.mediaDir, "data"))
-	os.RemoveAll(filepath.Join(config.mediaDir, "temp"))
+	g.Db.Where("1 = 1").Delete(&m.Share{})
+	g.Db.Where("1 = 1").Delete(&m.Attachment{})
+	os.RemoveAll(filepath.Join(g.Conf.MediaDir, "data"))
+	os.RemoveAll(filepath.Join(g.Conf.MediaDir, "temp"))
 	// create everything
 	for _, sh := range shares {
-		db.Create(&sh)
+		g.Db.Create(&sh)
 	}
-	os.MkdirAll(filepath.Join(config.mediaDir, "data"), os.ModePerm)
-	os.MkdirAll(filepath.Join(config.mediaDir, "temp"), os.ModePerm)
+	os.MkdirAll(filepath.Join(g.Conf.MediaDir, "data"), os.ModePerm)
+	os.MkdirAll(filepath.Join(g.Conf.MediaDir, "temp"), os.ModePerm)
 	// testfiles
-	ioutil.WriteFile(filepath.Join(config.mediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm)
+	ioutil.WriteFile(filepath.Join(g.Conf.MediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm)
 }
 
 /////////////////////////////////////
@@ -93,7 +94,7 @@ func TestAllShares(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		res, _ := http.Get(ts.URL + "/shares")
 		body, _ := ioutil.ReadAll(res.Body)
-		var erg []Share
+		var erg []m.Share
 		json.Unmarshal(body, &erg)
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
 		assert.EqualValues(t, shares[1], erg[0])
@@ -116,8 +117,8 @@ func TestGetShare(t *testing.T) {
 		res, _ := http.DefaultClient.Do(req)
 
 		body, _ := ioutil.ReadAll(res.Body)
-		var actual Share
-		var expected Share
+		var actual m.Share
+		var expected m.Share
 
 		json.Unmarshal(body, &actual)
 		ex, _ := json.Marshal(shares[0])
@@ -160,8 +161,8 @@ func TestDownloadFile(t *testing.T) {
 		}
 		res, _ := http.DefaultClient.Do(req)
 		body, _ := ioutil.ReadAll(res.Body)
-		assert.FileExists(t, filepath.Join(config.mediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
-		expected, _ := ioutil.ReadFile(filepath.Join(config.mediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
+		assert.FileExists(t, filepath.Join(g.Conf.MediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
+		expected, _ := ioutil.ReadFile(filepath.Join(g.Conf.MediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
 		assert.EqualValues(t, expected, body)
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
 	})
@@ -187,18 +188,17 @@ func TestOpenShare(t *testing.T) {
 	defer ts.Close()
 
 	t.Run("happy path", func(t *testing.T) {
-		var newShare = Share{
+		var newShare = m.Share{
 			ID:            uuid.MustParse("e5134044-2704-4864-85be-318fb158009f"),
 			Name:          "TestOpenShare",
 			Expires:       nil,
 			DownloadLimit: 69,
 			IsPublic:      false,
-			Attachments: []Attachment{
+			Attachments: []m.Attachment{
 				{
 					ID:          uuid.MustParse("2b524827-9c3c-47e0-9277-8b51fd45b4bd"),
 					Filename:    "hallo.txt",
 					Filesize:    123456,
-					IsEncrypted: false,
 					ShareID:     uuid.MustParse("e5134044-2704-4864-85be-318fb158009f"),
 				},
 			},
@@ -207,12 +207,12 @@ func TestOpenShare(t *testing.T) {
 		req, _ := http.NewRequest("POST", ts.URL+"/shares", strings.NewReader(string(b)))
 		res, _ := http.DefaultClient.Do(req)
 		body, _ := ioutil.ReadAll(res.Body)
-		var actual Share
+		var actual m.Share
 		json.Unmarshal(body, &actual)
 		// checks
 		assert.Equal(t, http.StatusOK, res.StatusCode)
-		assert.DirExists(t, filepath.Join(config.mediaDir, "temp", newShare.ID.String()))
-		assert.NoDirExists(t, filepath.Join(config.mediaDir, "data", newShare.ID.String()))
+		assert.DirExists(t, filepath.Join(g.Conf.MediaDir, "temp", newShare.ID.String()))
+		assert.NoDirExists(t, filepath.Join(g.Conf.MediaDir, "data", newShare.ID.String()))
 
 		assert.Equal(t, newShare.ID, actual.ID)
 		//assert.(t, newShare, actual)
