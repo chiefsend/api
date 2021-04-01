@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,7 +12,20 @@ import (
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
 
-func SendMail(sh Share) error {
+func SendMail(shareId string) error {
+	db, err := GetDatabase()
+	if err != nil {
+		return nil
+	}
+	var sh Share
+	err = db.Where("ID = ?", shareId).First(&sh).Error
+	if err != nil {
+		return err
+	}
+	if sh.IsTemporary == true {
+		return errors.New("share is not finalized")
+	}
+
 	if len(sh.Emails) <= 0 {
 		return nil
 	}
@@ -34,6 +48,6 @@ func SendMail(sh Share) error {
 	request := sendgrid.GetRequest(os.Getenv("SENDGRID_API_KEY"), "/v3/mail/send", "https://api.sendgrid.com")
 	request.Method = "POST"
 	request.Body = mail.GetRequestBody(m)
-	_, err := sendgrid.API(request)
+	_, err = sendgrid.API(request)
 	return err
 }

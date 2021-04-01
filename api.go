@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/hibiken/asynq"
 	"github.com/rs/cors"
 	"gorm.io/gorm"
 	"io"
@@ -210,23 +211,23 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
-
-	// TODO send mail
-	SendMail(share)
-	// TODO background job
-	//{
-	//	job, err := enqueuer.Enqueue("DeleteShare", nil)
-	//	////deleteIn := time.Now().Sub(*share.Expires)
-	//	//deleteIn := 1
-	//	//job, err := enqueuer.EnqueueIn("DeleteShare", int64(deleteIn), map[string]interface{}{
-	//	//	"ShareID": share.ID,
-	//	//})
-	//	if err != nil {
-	//		return &HTTPError{err, "Error creating background job", 500}
-	//	}
-	//	PrettyPrint(job)
-	//}
-
+	// run some background jobs
+	redis := asynq.RedisClientOpt{Addr: config.redisAddr}
+	client := asynq.NewClient(redis)
+	// send email
+	task1 := NewShareEmailTask(share)
+	_, err = client.Enqueue(task1)
+	if err != nil {
+		return &HTTPError{err, "Can't start background task", 500}
+	}
+	// delete share
+	if share.Expires != nil {
+		task2 := NewDeleteShareTaks(share)
+		_, err = client.Enqueue(task2, asynq.ProcessAt(*share.Expires))
+		if err != nil {
+			return &HTTPError{err, "Can't start background task", 500}
+		}
+	}
 	return SendJSON(w, share)
 }
 
