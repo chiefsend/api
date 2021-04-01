@@ -1,0 +1,190 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: ChiefSend
+servers:
+  - url: https://send.chief.zone/api
+
+
+paths:
+
+  /shares:
+    get:
+      summary: list all public shares
+      operationId: AllShares
+      responses:
+        '200':
+          description: array of shares
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Share"
+          
+    post:
+      summary: create an open share
+      operationId: OpenShare
+      responses:
+        '200':
+          description: new temporary share
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Share"
+
+
+  /share/{id}:
+    get:
+      summary: get one share
+      operationId: GetShare
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: the share
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Share"
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+        '403':
+          description: Forbidden (still temporary - not closed)
+      security:
+        - BasicAuth: []
+    
+    post:
+      summary: close an open share
+      operationId: CloseShare
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200': # TODO oder 201??
+          description: the (finalized) share
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Share"
+        '404':
+          description: Not Found
+        '403':
+          description: Forbidden (already closed)
+
+    delete:
+      summary: delete a share
+      operationId: DeleteShare
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+        '401':
+          description: unauthorized
+        '404':
+          description: Not Found
+      tags:
+        - admin
+      security:
+        - BasicAuth: []
+    
+  
+  /share/{id}/attachments:
+    post:
+      summary: upload one attachment
+      operationId: UploadAttachment
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: the attachment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+        '404':
+          description: Not Found
+        '403':
+          description: Forbidden
+
+  /share/{id}/attachment/{att}:
+    get:
+      summary: download one file
+      operationId: DownloadFile
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/att'
+      responses:
+        '200':
+          description: the file
+        '404':
+          description: Not Found
+        '401':
+          description: unauthorized
+      security:
+        - BasicAuth: []
+  
+
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+    AdminAuth:
+      type: http
+      scheme: basic
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: ShareID
+        
+    att:
+      name: att
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: AttachmentID
+
+
+  schemas:
+    Share:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        expires:
+          type: string
+          format: date-time
+        download_limit:
+          type: integer
+        is_public:
+          type: boolean
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attachment"
+    
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        filesize:
+          type: integer
+
