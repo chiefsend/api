@@ -40,6 +40,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Cannot migrate database")
 	}
+
+	fmt.Println("Lets go!")
 	// background job server
 	go StartBackgroundWorker()
 	// setup routes
@@ -63,7 +65,6 @@ func ConfigureRoutes() {
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", g.Conf.Port), handler))
 }
-
 
 func PrettyPrint(i interface{}) {
 	b, err := json.MarshalIndent(i, "", "  ")

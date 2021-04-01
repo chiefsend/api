@@ -1,6 +1,8 @@
 package globals
 
 import (
+	"github.com/joho/godotenv"
+	"log"
 	"os"
 	"strconv"
 )
@@ -14,6 +16,10 @@ type Config struct {
 var Conf = Config{}
 
 func LoadConfig() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Can't load dotenv file")
+	}
 	// Port
 	if port, err := strconv.Atoi(os.Getenv("PORT")); err == nil {
 		Conf.Port = port

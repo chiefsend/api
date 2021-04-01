@@ -29,3 +29,7 @@ log.txt
 log*
 *log
 
+# secret files
+*.htpasswd
+*.env
+.env

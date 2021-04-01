@@ -34,10 +34,10 @@ var shares = []m.Share{
 
 		Attachments: []m.Attachment{
 			{
-				ID:          uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
-				Filename:    "kekw.txt",
-				Filesize:    123456,
-				ShareID:     uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+				ID:       uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
+				Filename: "kekw.txt",
+				Filesize: 123456,
+				ShareID:  uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
 			},
 		},
 	},
@@ -196,10 +196,10 @@ func TestOpenShare(t *testing.T) {
 			IsPublic:      false,
 			Attachments: []m.Attachment{
 				{
-					ID:          uuid.MustParse("2b524827-9c3c-47e0-9277-8b51fd45b4bd"),
-					Filename:    "hallo.txt",
-					Filesize:    123456,
-					ShareID:     uuid.MustParse("e5134044-2704-4864-85be-318fb158009f"),
+					ID:       uuid.MustParse("2b524827-9c3c-47e0-9277-8b51fd45b4bd"),
+					Filename: "hallo.txt",
+					Filesize: 123456,
+					ShareID:  uuid.MustParse("e5134044-2704-4864-85be-318fb158009f"),
 				},
 			},
 		}
