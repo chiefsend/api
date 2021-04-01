@@ -40,12 +40,8 @@ func (fn endpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 /////////////////////////////////
 func AllShares(w http.ResponseWriter, _ *http.Request) *HTTPError {
 	fmt.Println("AllShares")
-	db, err := GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't get database", 500}
-	}
 	var shares []Share
-	err = db.Where("is_public = ? AND is_temporary = 0", 1).Find(&shares).Error
+	err := db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
@@ -58,11 +54,6 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
-	}
-
-	db, err := GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't get database", 500}
 	}
 
 	var share Share
@@ -103,12 +94,6 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
-	db, err := GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't get database", 500}
-	}
-
 	var att Attachment
 	err = db.Where("id = ?", attID.String()).First(&att).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -145,12 +130,6 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 
 func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	fmt.Println("OpenShare")
-
-	db, err := GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't get database", 500}
-	}
-
 	// parse body
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -163,7 +142,7 @@ func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	newShare.Attachments = nil // dont want attachments yet
 
-	// create temporary db entrie
+	// create temporary db entry
 	newShare.IsTemporary = true
 	err = db.Create(&newShare).Error
 	if err != nil {
@@ -181,12 +160,6 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
-	db, err := GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't get database", 500}
-	}
-
 	// get stuff
 	var share Share
 	err = db.Where("id = ?", shareID.String()).First(&share).Error
@@ -239,12 +212,6 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
-	db, err := GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't get database", 500}
-	}
-
 	// get share
 	var share Share
 	err = db.Where("id = ?", shareID.String()).First(&share).Error
@@ -271,7 +238,7 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 
 	var att Attachment
 	{
-		// add db entry TODO fehlerbehandlung für die ganze transaction
+		// add db entry // TODO error handling for whole transaction
 		db.Begin()
 		sid, err := uuid.Parse(shareID.String())
 		if err != nil {
@@ -307,9 +274,16 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
 
-	share, er := RetrieveShare(shareID, true)
-	if er != nil {
-		return er
+	var share Share
+	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &HTTPError{err, "Record not found", 404}
+	}
+	if err != nil {
+		return &HTTPError{err, "Can't fetch data", 500}
+	}
+	if share.IsTemporary == true {
+		return &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
 	}
 
 	zipWriter := zip.NewWriter(w)
@@ -357,31 +331,6 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 /////////////////////////////////
 ////////// functions ////////////
 /////////////////////////////////
-func RetrieveShare(shareID uuid.UUID, withAtt bool) (*Share, *HTTPError) { // TODO move somewhere else
-	db, err := GetDatabase()
-	if err != nil {
-		return nil, &HTTPError{err, "Can't get database", 500}
-	}
-
-	var share Share
-	if withAtt == true {
-		err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
-	} else {
-		err = db.Where("ID = ?", shareID).First(&share).Error
-	}
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, &HTTPError{err, "Record not found", 404}
-	}
-	if err != nil {
-		return nil, &HTTPError{err, "Can't fetch data", 500}
-	}
-	if share.IsTemporary == true {
-		return nil, &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
-	}
-	return &share, nil
-}
-
 func ConfigureRoutes() {
 	router := mux.NewRouter().StrictSlash(true)
 	handler := cors.Default().Handler(router)

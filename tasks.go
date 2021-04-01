@@ -28,10 +28,6 @@ func HandleDeleteShareTask(ctx context.Context, t *asynq.Task) error {
 	if err != nil {
 		return err
 	}
-	db, err := GetDatabase()
-	if err != nil {
-		return err
-	}
 	return db.Where("ID = ?", id).Delete(&Share{}).Error
 }
 

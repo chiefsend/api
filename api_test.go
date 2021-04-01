@@ -58,10 +58,11 @@ var shares = []Share{
 }
 
 func Reset() {
-	db, err := GetDatabase()
+	database, err := GetDatabase()
 	if err != nil {
 		log.Fatal("database brok")
 	}
+	db = database
 	db.AutoMigrate(&Share{})
 	db.AutoMigrate(&Attachment{})
 	// delete everything

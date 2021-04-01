@@ -13,12 +13,8 @@ import (
 )
 
 func SendMail(shareId string) error {
-	db, err := GetDatabase()
-	if err != nil {
-		return nil
-	}
 	var sh Share
-	err = db.Where("ID = ?", shareId).First(&sh).Error
+	err := db.Where("ID = ?", shareId).First(&sh).Error
 	if err != nil {
 		return err
 	}
