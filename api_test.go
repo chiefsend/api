@@ -222,7 +222,6 @@ func TestOpenShare(t *testing.T) {
 		req, _ := http.NewRequest("POST", ts.URL+"/shares", nil)
 		res, _ := http.DefaultClient.Do(req)
 		//body, _ := ioutil.ReadAll(res.Body)
-		//fmt.Println(string(body))
 		// checks
 		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 	})
@@ -238,9 +237,6 @@ func TestCloseShare(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		req, _ := http.NewRequest("POST", ts.URL+"/share/a558aca3-fb40-400b-8dc6-ae49c705c791", nil)
 		res, _ := http.DefaultClient.Do(req)
-
-		body, _ := ioutil.ReadAll(res.Body)
-		fmt.Println(string(body))
 
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 	})

@@ -4,7 +4,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 
@@ -34,7 +33,6 @@ func SendMail(shareId string) error {
 	for _, address := range sh.Emails {
 		receivers = append(receivers, mail.NewEmail(strings.Split(address, "@")[0], address))
 	}
-	fmt.Println(sh.Emails)
 	p.AddTos(receivers...)
 	p.SetDynamicTemplateData("id", sh.ID.String())
 	p.SetDynamicTemplateData("download_id", sh.DownloadLimit)

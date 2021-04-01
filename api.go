@@ -39,7 +39,6 @@ func (fn endpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //////////// routes /////////////
 /////////////////////////////////
 func AllShares(w http.ResponseWriter, _ *http.Request) *HTTPError {
-	fmt.Println("AllShares")
 	var shares []Share
 	err := db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
 	if err != nil {
@@ -49,7 +48,6 @@ func AllShares(w http.ResponseWriter, _ *http.Request) *HTTPError {
 }
 
 func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
-	fmt.Println("Get Share")
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -83,8 +81,6 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
-	fmt.Println("Download file")
-
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -129,7 +125,6 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
-	fmt.Println("OpenShare")
 	// parse body
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -153,8 +148,6 @@ func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
-	fmt.Println("CloseShare")
-
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -205,8 +198,6 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
-	fmt.Println("UploadTest")
-
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -266,8 +257,6 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
-	fmt.Println("DownloadZip")
-
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {

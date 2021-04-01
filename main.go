@@ -22,6 +22,13 @@ var config = struct {
 var db *gorm.DB = nil
 
 func main() {
+	// setup logging
+	file, err := os.OpenFile("log.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	log.SetOutput(file)
 	// load configuration
 	// TODO
 	// set database connection
@@ -44,16 +51,13 @@ func main() {
 	}
 	// background job server
 	go StartBackgroundWorker()
-	// start
-	fmt.Println("Let's go!!!")
-	//ConfigurePool()
 	ConfigureRoutes()
 }
 
 func PrettyPrint(i interface{}) {
 	b, err := json.MarshalIndent(i, "", "  ")
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	fmt.Println(string(b))
 }

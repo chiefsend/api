@@ -23,3 +23,9 @@ media/
 
 # IDE
 .idea/
+
+# logs
+log.txt
+log*
+*log
+
