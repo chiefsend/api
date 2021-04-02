@@ -19,22 +19,24 @@ type Share struct {
 	IsPublic      bool       `json:"is_public"  gorm:"not null; default:false; index"`
 	Password      string     `json:"-"`
 	Emails        []string   `json:"emails,omitempty" gorm:"-"`
-	eMailsDB      string     `json:"-"`
+	EMailsDB      string     `json:"-"`
 	IsTemporary   bool       `json:"-"  gorm:"not null"`
 
 	Attachments []Attachment `json:"files,omitempty"  gorm:"constraint:OnDelete:CASCADE"`
 }
 
 
-func (sh *Share) AfterFind(scope *gorm.DB) error {
-	sh.Emails = strings.Split(sh.eMailsDB, ";")
+func (sh *Share) AfterFind(tx *gorm.DB) error {
+	sh.Emails = strings.Split(sh.EMailsDB, ";")
 	return nil
 }
 
-func (sh *Share) AfterCreate(scope *gorm.DB) error {
+func (sh *Share) BeforeCreate(tx *gorm.DB) error {
+	// set uuid
 	if sh.ID.String() == "00000000-0000-0000-0000-000000000000" {
 		uid, err := uuid.NewRandom()
 		if err != nil {
+			tx.Rollback()
 			return err
 		}
 		sh.ID = uid
@@ -42,21 +44,31 @@ func (sh *Share) AfterCreate(scope *gorm.DB) error {
 	// create temporary dir
 	if sh.IsTemporary == true {
 		if err := os.MkdirAll(filepath.Join(g.Conf.MediaDir, "temp", sh.ID.String()), os.ModePerm); err != nil {
+			tx.Rollback()
 			return nil
 		}
 	} else {
 		if err := os.MkdirAll(filepath.Join(g.Conf.MediaDir, "data", sh.ID.String()), os.ModePerm); err != nil {
+			tx.Rollback()
 			return nil
 		}
 	}
 	//convert email adresses
-	sh.eMailsDB = strings.Join(sh.Emails, ";")
+	sh.EMailsDB = strings.Join(sh.Emails, ";")
 	return nil
 }
 
-func (sh *Share) BeforeDelete(scope *gorm.DB) error {
+func (sh *Share) BeforeDelete(tx *gorm.DB) error {
 	if sh.IsTemporary == false {
-		return os.RemoveAll(filepath.Join(g.Conf.MediaDir, "data", sh.ID.String()))
+		if err := os.RemoveAll(filepath.Join(g.Conf.MediaDir, "data", sh.ID.String())); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}else {
+		if err := os.RemoveAll(filepath.Join(g.Conf.MediaDir, "temp", sh.ID.String())); err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 	return nil
 }

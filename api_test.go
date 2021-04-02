@@ -59,6 +59,7 @@ var shares = []m.Share{
 }
 
 func Reset() {
+	g.LoadConfig()
 	database, err := m.GetDatabase()
 	if err != nil {
 		log.Fatal("database brok")

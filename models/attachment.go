@@ -17,10 +17,11 @@ type Attachment struct {
 }
 
 
-func (att *Attachment) BeforeCreate(scope *gorm.DB) error {
+func (att *Attachment) BeforeCreate(tx *gorm.DB) error {
 	if att.ID.String() == "00000000-0000-0000-0000-000000000000" {
 		uid, err := uuid.NewRandom()
 		if err != nil {
+			tx.Rollback()
 			return err
 		}
 		att.ID = uid
@@ -28,6 +29,10 @@ func (att *Attachment) BeforeCreate(scope *gorm.DB) error {
 	return nil
 }
 
-func (att *Attachment) BeforeDelete(scope *gorm.DB) error {
-	return os.Remove(filepath.Join(globals.Conf.MediaDir, "data", att.ShareID.String(), att.ID.String()))
+func (att *Attachment) BeforeDelete(tx *gorm.DB) error {
+	if err:= os.Remove(filepath.Join(globals.Conf.MediaDir, "data", att.ShareID.String(), att.ID.String())); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return nil
 }
