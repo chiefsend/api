@@ -3,7 +3,6 @@ package main
 import (
 	g "chiefsend-api/globals"
 	m "chiefsend-api/models"
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -43,7 +42,7 @@ func main() {
 
 	fmt.Println("Lets go!")
 	// background job server
-	go StartBackgroundWorker()
+	//go StartBackgroundWorker()
 	// setup routes
 	ConfigureRoutes()
 }
@@ -64,12 +63,4 @@ func ConfigureRoutes() {
 	router.Handle("/share/{id}/zip", endpointREST(DownloadZip)).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", g.Conf.Port), handler))
-}
-
-func PrettyPrint(i interface{}) {
-	b, err := json.MarshalIndent(i, "", "  ")
-	if err != nil {
-		log.Println(err)
-	}
-	fmt.Println(string(b))
 }
