@@ -1,9 +1,9 @@
 package main
 
 import (
-	g "chiefsend-api/globals"
-	m "chiefsend-api/models"
 	"fmt"
+	g "github.com/chiefsend/api/globals"
+	m "github.com/chiefsend/api/models"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"log"

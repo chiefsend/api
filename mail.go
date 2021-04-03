@@ -3,9 +3,9 @@
 package main
 
 import (
-	g "chiefsend-api/globals"
-	m "chiefsend-api/models"
 	"errors"
+	g "github.com/chiefsend/api/globals"
+	m "github.com/chiefsend/api/models"
 	"os"
 	"strings"
 

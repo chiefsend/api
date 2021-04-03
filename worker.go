@@ -1,7 +1,7 @@
 package main
 
 import (
-	g "chiefsend-api/globals"
+	g "github.com/chiefsend/api/globals"
 	"github.com/hibiken/asynq"
 	"log"
 )

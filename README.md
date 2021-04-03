@@ -15,6 +15,8 @@ RESTful API for chiefsend written in Go
         ├── data
         └── temp
     ```
+- **API Server**: Takes and processes all the HTTP requests
+- **Background Job Worker**: Starts with the API Server
 
 ## Environment Variables:
 - `PORT`: the port the api listens to (default: 6969)

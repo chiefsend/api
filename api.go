@@ -2,11 +2,11 @@ package main
 
 import (
 	"archive/zip"
-	g "chiefsend-api/globals"
-	m "chiefsend-api/models"
 	"encoding/json"
 	"errors"
 	"fmt"
+	g "github.com/chiefsend/api/globals"
+	m "github.com/chiefsend/api/models"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hibiken/asynq"
@@ -187,6 +187,7 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
 
+	// TODO check if stuff is even possible
 	// run some background jobs
 	redis := asynq.RedisClientOpt{Addr: g.Conf.RedisAddr}
 	client := asynq.NewClient(redis)

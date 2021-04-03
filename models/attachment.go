@@ -1,7 +1,7 @@
 package models
 
 import (
-	"chiefsend-api/globals"
+	"github.com/chiefsend/api/globals"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"os"

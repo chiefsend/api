@@ -1,4 +1,4 @@
-module chiefsend-api
+module github.com/chiefsend/api
 
 go 1.16
 

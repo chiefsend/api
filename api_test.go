@@ -2,10 +2,10 @@ package main
 
 import (
 	"bytes"
-	g "chiefsend-api/globals"
-	m "chiefsend-api/models"
 	"encoding/json"
 	"fmt"
+	g "github.com/chiefsend/api/globals"
+	m "github.com/chiefsend/api/models"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
