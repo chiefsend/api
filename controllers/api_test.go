@@ -1,4 +1,4 @@
-package main
+package controllers
 
 import (
 	"bytes"
@@ -6,89 +6,24 @@ import (
 	"fmt"
 	g "github.com/chiefsend/api/globals"
 	m "github.com/chiefsend/api/models"
+	u "github.com/chiefsend/api/util"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// DATA
-var shares = []m.Share{
-	{
-		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
-		Name:          "TestFinalPrivate",
-		DownloadLimit: 100,
-		IsPublic:      false,
-		IsTemporary:   false,
-		Password:      "test123",
-		Emails:        []string{""},
-
-		Attachments: []m.Attachment{
-			{
-				ID:       uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
-				Filename: "kekw.txt",
-				Filesize: 123456,
-				ShareID:  uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
-			},
-		},
-	},
-	{
-		ID:          uuid.MustParse("f43b0e48-13cc-4c6c-8a23-3a18a670effd"),
-		Name:        "TestFinalPublic",
-		IsPublic:    true,
-		IsTemporary: false,
-		Emails:      []string{""},
-	},
-	{
-		ID:            uuid.MustParse("a558aca3-fb40-400b-8dc6-ae49c705c791"),
-		Name:          "TestTemporary",
-		DownloadLimit: 300,
-		IsPublic:      true,
-		IsTemporary:   true,
-		Emails:        []string{""},
-	},
-}
-
-func Reset() {
-	g.LoadConfig()
-	database, err := m.GetDatabase()
-	if err != nil {
-		log.Fatal("database brok")
-	}
-	g.Db = database
-	g.Db.AutoMigrate(&m.Share{})
-	g.Db.AutoMigrate(&m.Attachment{})
-	// delete everything
-	g.Db.Where("1 = 1").Delete(&m.Share{})
-	g.Db.Where("1 = 1").Delete(&m.Attachment{})
-	os.RemoveAll(filepath.Join(g.Conf.MediaDir, "data"))
-	os.RemoveAll(filepath.Join(g.Conf.MediaDir, "temp"))
-	// create everything
-	for _, sh := range shares {
-		g.Db.Create(&sh)
-	}
-	os.MkdirAll(filepath.Join(g.Conf.MediaDir, "data"), os.ModePerm)
-	os.MkdirAll(filepath.Join(g.Conf.MediaDir, "temp"), os.ModePerm)
-	// testfiles
-	ioutil.WriteFile(filepath.Join(g.Conf.MediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm)
-}
-
-/////////////////////////////////////
-/////////////// TEST ////////////////
-/////////////////////////////////////
 func TestAllShares(t *testing.T) {
-	Reset()
+	u.Reset()
 	r := mux.NewRouter()
-	r.Handle("/shares", endpointREST(AllShares)).Methods("GET")
+	r.Handle("/shares", EndpointREST(AllShares)).Methods("GET")
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -98,22 +33,22 @@ func TestAllShares(t *testing.T) {
 		var erg []m.Share
 		json.Unmarshal(body, &erg)
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
-		assert.EqualValues(t, shares[1], erg[0])
+		assert.EqualValues(t, u.Shares[1], erg[0])
 	})
 }
 
 func TestGetShare(t *testing.T) {
-	Reset()
+	u.Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
-	router.Handle("/share/{id}", endpointREST(GetShare)).Methods("GET")
+	router.Handle("/share/{id}", EndpointREST(GetShare)).Methods("GET")
 	defer ts.Close()
 
 	t.Run("happy path", func(t *testing.T) {
 		header := map[string][]string{
 			"Authorization": {"Basic NTcxM2QyMjgtYTA0Mi00NDZkLWE1ZTQtMTgzYjE5ZmE4MzJhOnRlc3QxMjM="}, // pw: test123
 		}
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, shares[0].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, u.Shares[0].ID.String()), nil)
 		req.Header = header
 		res, _ := http.DefaultClient.Do(req)
 
@@ -122,7 +57,7 @@ func TestGetShare(t *testing.T) {
 		var expected m.Share
 
 		json.Unmarshal(body, &actual)
-		ex, _ := json.Marshal(shares[0])
+		ex, _ := json.Marshal(u.Shares[0])
 		json.Unmarshal(ex, &expected)
 
 		assert.Equal(t, http.StatusOK, res.StatusCode)
@@ -130,7 +65,7 @@ func TestGetShare(t *testing.T) {
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, shares[0].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, u.Shares[0].ID.String()), nil)
 		res, _ := http.DefaultClient.Do(req)
 		assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
 	})
@@ -142,50 +77,50 @@ func TestGetShare(t *testing.T) {
 	})
 
 	t.Run("not ready", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, shares[2].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, u.Shares[2].ID.String()), nil)
 		res, _ := http.DefaultClient.Do(req)
 		assert.Equal(t, http.StatusForbidden, res.StatusCode)
 	})
 }
 
 func TestDownloadFile(t *testing.T) {
-	Reset()
+	u.Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
-	router.Handle("/share/{id}/attachment/{att}", endpointREST(DownloadFile)).Methods("GET")
+	router.Handle("/share/{id}/attachment/{att}", EndpointREST(DownloadFile)).Methods("GET")
 	defer ts.Close()
 
 	t.Run("happy path", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, shares[0].ID.String(), shares[0].Attachments[0].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, u.Shares[0].ID.String(), u.Shares[0].Attachments[0].ID.String()), nil)
 		req.Header = map[string][]string{
 			"Authorization": {"Basic NTcxM2QyMjgtYTA0Mi00NDZkLWE1ZTQtMTgzYjE5ZmE4MzJhOnRlc3QxMjM="}, // pw: test123
 		}
 		res, _ := http.DefaultClient.Do(req)
 		body, _ := ioutil.ReadAll(res.Body)
-		assert.FileExists(t, filepath.Join(g.Conf.MediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
-		expected, _ := ioutil.ReadFile(filepath.Join(g.Conf.MediaDir, "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
+		assert.FileExists(t, filepath.Join(g.Conf.MediaDir, "data", u.Shares[0].ID.String(), u.Shares[0].Attachments[0].ID.String()))
+		expected, _ := ioutil.ReadFile(filepath.Join(g.Conf.MediaDir, "data", u.Shares[0].ID.String(), u.Shares[0].Attachments[0].ID.String()))
 		assert.EqualValues(t, expected, body)
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, shares[0].ID.String(), shares[0].Attachments[0].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, u.Shares[0].ID.String(), u.Shares[0].Attachments[0].ID.String()), nil)
 		res, _ := http.DefaultClient.Do(req)
 		assert.EqualValues(t, http.StatusUnauthorized, res.StatusCode)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, shares[0].ID.String(), "0dd9a011-612b-4f33-99c0-bfd687021014"), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, u.Shares[0].ID.String(), "0dd9a011-612b-4f33-99c0-bfd687021014"), nil)
 		res, _ := http.DefaultClient.Do(req)
 		assert.EqualValues(t, http.StatusNotFound, res.StatusCode)
 	})
 }
 
 func TestOpenShare(t *testing.T) {
-	Reset()
+	u.Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
-	router.Handle("/shares", endpointREST(OpenShare)).Methods("POST")
+	router.Handle("/shares", EndpointREST(OpenShare)).Methods("POST")
 	defer ts.Close()
 
 	t.Run("happy path", func(t *testing.T) {
@@ -229,10 +164,10 @@ func TestOpenShare(t *testing.T) {
 }
 
 func TestCloseShare(t *testing.T) {
-	Reset()
+	u.Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
-	router.Handle("/share/{id}", endpointREST(CloseShare)).Methods("POST")
+	router.Handle("/share/{id}", EndpointREST(CloseShare)).Methods("POST")
 	defer ts.Close()
 
 	t.Run("happy path", func(t *testing.T) {
@@ -254,10 +189,10 @@ func TestCloseShare(t *testing.T) {
 }
 
 func TestUploadAttachment(t *testing.T) {
-	Reset()
+	u.Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
-	router.Handle("/share/{id}/attachments", endpointREST(UploadAttachment)).Methods("POST")
+	router.Handle("/share/{id}/attachments", EndpointREST(UploadAttachment)).Methods("POST")
 	defer ts.Close()
 
 	t.Run("happy path", func(t *testing.T) {

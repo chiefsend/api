@@ -1,9 +1,9 @@
-package main
+package background
 
 import (
 	"context"
-	g "github.com/chiefsend/api/globals"
 	m "github.com/chiefsend/api/models"
+	"github.com/chiefsend/api/util"
 	"github.com/hibiken/asynq"
 )
 
@@ -26,11 +26,16 @@ func NewDeleteShareTaks(share m.Share) *asynq.Task {
 
 // Handlers
 func HandleDeleteShareTask(ctx context.Context, t *asynq.Task) error {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return err
+	}
+
 	id, err := t.Payload.GetString("share_id")
 	if err != nil {
 		return err
 	}
-	return g.Db.Where("ID = ?", id).Delete(&m.Share{}).Error
+	return db.Where("ID = ?", id).Delete(&m.Share{}).Error
 }
 
 func HandleShareEmailTask(ctx context.Context, t *asynq.Task) error {
@@ -38,5 +43,5 @@ func HandleShareEmailTask(ctx context.Context, t *asynq.Task) error {
 	if err != nil {
 		return err
 	}
-	return SendMail(id)
+	return util.SendMail(id)
 }

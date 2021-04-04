@@ -2,65 +2,51 @@ package main
 
 import (
 	"fmt"
+	"github.com/chiefsend/api/background"
+	"github.com/chiefsend/api/controllers"
 	g "github.com/chiefsend/api/globals"
 	m "github.com/chiefsend/api/models"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"log"
 	"net/http"
-	"os"
 )
 
 func main() {
-	// setup logging
-	file, err := os.OpenFile("log.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	log.SetOutput(file)
 	// load configuration
 	g.LoadConfig()
-	// set database connection
-	database, err := m.GetDatabase()
-	if err != nil || database == nil {
+	// set/test database connection
+	db, err := m.GetDatabase()
+	if err != nil || db == nil {
 		log.Fatal("Cannot connect database")
 	}
-	g.Db = database
-	if g.Db == nil {
-		log.Fatal("Can't connect to database")
-	}
-	// Migrate the schema
-	err = g.Db.AutoMigrate(&m.Share{})
-	if err != nil {
+	// Migrate the schema (temporary) FIXME: nur mit passender flag?
+	if err := db.AutoMigrate(&m.Share{}); err != nil {
 		log.Fatal("Cannot migrate database")
 	}
-	err = g.Db.AutoMigrate(&m.Attachment{})
-	if err != nil {
+	if err := db.AutoMigrate(&m.Attachment{}); err != nil {
 		log.Fatal("Cannot migrate database")
 	}
-
+	// start the server(s)
 	fmt.Println("Lets go!")
-	// background job server
-	//go StartBackgroundWorker()
-	// setup routes
+	go background.StartBackgroundWorkers()
 	ConfigureRoutes()
 }
 
 func ConfigureRoutes() {
-	router := mux.NewRouter().StrictSlash(true)
+	router := mux.NewRouter()
 	handler := cors.Default().Handler(router)
 
-	router.Handle("/shares", endpointREST(AllShares)).Methods("GET")
-	router.Handle("/shares", endpointREST(OpenShare)).Methods("POST")
+	router.Handle("/shares", controllers.EndpointREST(controllers.AllShares)).Methods("GET")
+	router.Handle("/shares", controllers.EndpointREST(controllers.OpenShare)).Methods("POST")
 
-	router.Handle("/share/{id}", endpointREST(GetShare)).Methods("GET")
-	router.Handle("/share/{id}", endpointREST(CloseShare)).Methods("POST")
+	router.Handle("/share/{id}", controllers.EndpointREST(controllers.GetShare)).Methods("GET")
+	router.Handle("/share/{id}", controllers.EndpointREST(controllers.CloseShare)).Methods("POST")
 
-	router.Handle("/share/{id}/attachments", endpointREST(UploadAttachment)).Methods("POST")
+	router.Handle("/share/{id}/attachments", controllers.EndpointREST(controllers.UploadAttachment)).Methods("POST")
 
-	router.Handle("/share/{id}/attachment/{att}", endpointREST(DownloadFile)).Methods("GET")
-	router.Handle("/share/{id}/zip", endpointREST(DownloadZip)).Methods("GET")
+	router.Handle("/share/{id}/attachment/{att}", controllers.EndpointREST(controllers.DownloadFile)).Methods("GET")
+	router.Handle("/share/{id}/zip", controllers.EndpointREST(controllers.DownloadZip)).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", g.Conf.Port), handler))
 }

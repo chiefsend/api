@@ -1,10 +1,11 @@
-package main
+package controllers
 
 import (
 	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/chiefsend/api/background"
 	g "github.com/chiefsend/api/globals"
 	m "github.com/chiefsend/api/models"
 	"github.com/google/uuid"
@@ -24,9 +25,9 @@ type HTTPError struct {
 	Code    int
 }
 
-type endpointREST func(http.ResponseWriter, *http.Request) *HTTPError
+type EndpointREST func(http.ResponseWriter, *http.Request) *HTTPError
 
-func (fn endpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (fn EndpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil { // e is *HTTPError, not os.Error.
 		if e.Code == 401 {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Please enter the password"`)
@@ -39,8 +40,13 @@ func (fn endpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //////////// routes /////////////
 /////////////////////////////////
 func AllShares(w http.ResponseWriter, _ *http.Request) *HTTPError {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
 	var shares []m.Share
-	err := g.Db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
+	err = db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
@@ -48,6 +54,11 @@ func AllShares(w http.ResponseWriter, _ *http.Request) *HTTPError {
 }
 
 func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -55,7 +66,7 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	var share m.Share
-	err = g.Db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
+	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "record not found", 404}
 	}
@@ -81,6 +92,11 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -92,7 +108,7 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	var att m.Attachment
-	err = g.Db.Where("id = ?", attID.String()).First(&att).Error
+	err = db.Where("id = ?", attID.String()).First(&att).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
@@ -105,7 +121,7 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	var share m.Share
-	err = g.Db.Where("id = ?", att.ShareID.String()).First(&share).Error
+	err = db.Where("id = ?", att.ShareID.String()).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
@@ -133,6 +149,11 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return &HTTPError{err, "Request does not contain a valid body", 400}
@@ -146,7 +167,7 @@ func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	// setup and store it
 	newShare.Attachments = nil // dont want attachments yet
 	newShare.IsTemporary = true
-	err = g.Db.Create(&newShare).Error
+	err = db.Create(&newShare).Error
 	if err != nil {
 		return &HTTPError{err, "Can't create data", 500}
 	}
@@ -155,6 +176,11 @@ func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -162,7 +188,7 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	var share m.Share
-	err = g.Db.Where("id = ?", shareID.String()).First(&share).Error
+	err = db.Where("id = ?", shareID.String()).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
@@ -182,7 +208,7 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	// set stuff permanent
 	share.IsTemporary = false
-	err = g.Db.Save(&share).Error
+	err = db.Save(&share).Error
 	if err != nil {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
@@ -192,14 +218,14 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	redis := asynq.RedisClientOpt{Addr: g.Conf.RedisAddr}
 	client := asynq.NewClient(redis)
 	// send email
-	mailTask := NewShareEmailTask(share)
+	mailTask := background.NewShareEmailTask(share)
 	_, err = client.Enqueue(mailTask)
 	if err != nil {
 		return &HTTPError{err, "Can't start background task", 500}
 	}
 	// delete share
 	if share.Expires != nil {
-		deleteTask := NewDeleteShareTaks(share)
+		deleteTask := background.NewDeleteShareTaks(share)
 		_, err = client.Enqueue(deleteTask, asynq.ProcessAt(*share.Expires))
 		if err != nil {
 			return &HTTPError{err, "Can't start background task", 500}
@@ -210,6 +236,11 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -217,7 +248,7 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	var share m.Share
-	err = g.Db.Where("id = ?", shareID.String()).First(&share).Error
+	err = db.Where("id = ?", shareID.String()).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
@@ -242,11 +273,11 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	var att m.Attachment
 	{
 		// add database entry // TODO error handling for whole transaction
-		g.Db.Begin()
+		db.Begin()
 		att.ShareID = shareID
 		att.Filename = handler.Filename
 		att.Filesize = handler.Size
-		g.Db.Create(&att)
+		db.Create(&att)
 
 		// save file
 		fileBytes, err := ioutil.ReadAll(file)
@@ -255,16 +286,21 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 		}
 		err = ioutil.WriteFile(filepath.Join(g.Conf.MediaDir, "temp", shareID.String(), att.ID.String()), fileBytes, os.ModePerm)
 		if err != nil {
-			g.Db.Rollback()
+			db.Rollback()
 			return &HTTPError{err, "cant save file", 500}
 		}
-		g.Db.Commit()
+		db.Commit()
 	}
 
 	return SendJSON(w, att)
 }
 
 func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -272,7 +308,7 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	var share m.Share
-	err = g.Db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
+	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &HTTPError{err, "Record not found", 404}
 	}
