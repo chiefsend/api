@@ -3,11 +3,9 @@ info:
   version: 1.0.0
   title: ChiefSend
 servers:
-  - url: https://send.chief.zone/api
-
+  - url: https://send2.chief.zone/api/v1
 
 paths:
-
   /shares:
     get:
       summary: list all public shares
@@ -21,10 +19,17 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Share"
-          
+
     post:
       summary: create an open share
       operationId: OpenShare
+      requestBody:
+        description: Specify the settings for the new Share
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Share"
       responses:
         '200':
           description: new temporary share
@@ -62,7 +67,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
-        '200': # TODO oder 201??
+        '200':
           description: the (finalized) share
           content:
             application/json:
@@ -88,7 +93,7 @@ paths:
       tags:
         - admin
       security:
-        - BasicAuth: []
+        - AdminAuth: []
     
   
   /share/{id}/attachments:
@@ -97,6 +102,17 @@ paths:
       operationId: UploadAttachment
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        description: the file to upload
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
       responses:
         '200':
           description: the attachment
@@ -134,7 +150,7 @@ components:
       scheme: basic
     AdminAuth:
       type: http
-      scheme: basic
+      scheme: bearer
 
   parameters:
     id:
@@ -170,6 +186,11 @@ components:
           format: date-time
         download_limit:
           type: integer
+        emails:
+          type: array
+          items:
+            type: string
+            format: email
         is_public:
           type: boolean
         files:
@@ -187,4 +208,3 @@ components:
           type: string
         filesize:
           type: integer
-
