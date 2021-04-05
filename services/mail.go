@@ -1,6 +1,6 @@
 // using SendGrid's Go Library
 // https://github.com/sendgrid/sendgrid-go
-package util
+package services
 
 import (
 	"errors"

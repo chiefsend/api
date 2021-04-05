@@ -2,29 +2,37 @@ package background
 
 import (
 	"errors"
-	g "github.com/chiefsend/api/globals"
 	m "github.com/chiefsend/api/models"
-	u "github.com/chiefsend/api/util"
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
+	"os"
 	"testing"
 	"time"
 )
 
+var share = m.Share {
+	ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+	Name:          "TestFinalPrivate",
+	DownloadLimit: 100,
+	IsPublic:      false,
+	IsTemporary:   false,
+	Password:      "test123",
+}
+
 func TestDeleteShareTaks(t *testing.T) {
-	u.Reset()
 	db, _ := m.GetDatabase()
 	// test client
-	r := asynq.RedisClientOpt{Addr: g.Conf.RedisAddr}
+	r := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")}
 	client := asynq.NewClient(r)
 
-	task := NewDeleteShareTaks(u.Shares[0])
+	task := NewDeleteShareTaks(share)
 	// Process the task immediately.
 	_, err := client.Enqueue(task)
 	assert.Nil(t, err)
 	time.Sleep(3 * time.Second)
 	var sh m.Share
-	err = db.Where("ID = ?", u.Shares[0].ID.String()).First(&sh).Error
+	err = db.Where("ID = ?", share.ID.String()).First(&sh).Error
 	assert.False(t, errors.Is(err, gorm.ErrRecordNotFound))
 }

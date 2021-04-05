@@ -1,7 +1,6 @@
 package models
 
 import (
-	"github.com/chiefsend/api/globals"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"os"
@@ -30,7 +29,7 @@ func (att *Attachment) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (att *Attachment) BeforeDelete(tx *gorm.DB) error {
-	if err:= os.Remove(filepath.Join(globals.Conf.MediaDir, "data", att.ShareID.String(), att.ID.String())); err != nil {
+	if err:= os.Remove(filepath.Join(os.Getenv("MEDIA_DIR"), "data", att.ShareID.String(), att.ID.String())); err != nil {
 		tx.Rollback()
 		return err
 	}

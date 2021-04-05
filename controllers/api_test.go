@@ -4,24 +4,83 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	g "github.com/chiefsend/api/globals"
 	m "github.com/chiefsend/api/models"
-	u "github.com/chiefsend/api/util"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
+
+var shares = []m.Share{
+	{
+		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+		Name:          "TestFinalPrivate",
+		DownloadLimit: 100,
+		IsPublic:      false,
+		IsTemporary:   false,
+		Password:      "test123",
+		Emails:        []string{""},
+
+		Attachments: []m.Attachment{
+			{
+				ID:       uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
+				Filename: "kekw.txt",
+				Filesize: 123456,
+				ShareID:  uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+			},
+		},
+	},
+	{
+		ID:          uuid.MustParse("f43b0e48-13cc-4c6c-8a23-3a18a670effd"),
+		Name:        "TestFinalPublic",
+		IsPublic:    true,
+		IsTemporary: false,
+		Emails:      []string{""},
+	},
+	{
+		ID:            uuid.MustParse("a558aca3-fb40-400b-8dc6-ae49c705c791"),
+		Name:          "TestTemporary",
+		DownloadLimit: 300,
+		IsPublic:      true,
+		IsTemporary:   true,
+		Emails:        []string{""},
+	},
+}
+
+func Reset() {
+	db, err := m.GetDatabase()
+	if err != nil {
+		log.Fatal("database brok")
+	}
+	db.AutoMigrate(&m.Share{})
+	db.AutoMigrate(&m.Attachment{})
+	// delete everything
+	db.Where("1 = 1").Delete(&m.Share{})
+	db.Where("1 = 1").Delete(&m.Attachment{})
+	os.RemoveAll(filepath.Join(os.Getenv("MEDIA_DIR"), "data"))
+	os.RemoveAll(filepath.Join(os.Getenv("MEDIA_DIR"), "temp"))
+	// create everything
+	for _, sh := range shares {
+		db.Create(&sh)
+	}
+	os.MkdirAll(filepath.Join(os.Getenv("MEDIA_DIR"), "data"), os.ModePerm)
+	os.MkdirAll(filepath.Join(os.Getenv("MEDIA_DIR"), "temp"), os.ModePerm)
+	// testfiles
+	ioutil.WriteFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm)
+}
+
 func TestAllShares(t *testing.T) {
-	u.Reset()
+	Reset()
 	r := mux.NewRouter()
 	r.Handle("/shares", EndpointREST(AllShares)).Methods("GET")
 	ts := httptest.NewServer(r)
@@ -33,12 +92,12 @@ func TestAllShares(t *testing.T) {
 		var erg []m.Share
 		json.Unmarshal(body, &erg)
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
-		assert.EqualValues(t, u.Shares[1], erg[0])
+		assert.EqualValues(t, shares[1], erg[0])
 	})
 }
 
 func TestGetShare(t *testing.T) {
-	u.Reset()
+	Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
 	router.Handle("/share/{id}", EndpointREST(GetShare)).Methods("GET")
@@ -48,7 +107,7 @@ func TestGetShare(t *testing.T) {
 		header := map[string][]string{
 			"Authorization": {"Basic NTcxM2QyMjgtYTA0Mi00NDZkLWE1ZTQtMTgzYjE5ZmE4MzJhOnRlc3QxMjM="}, // pw: test123
 		}
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, u.Shares[0].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, shares[0].ID.String()), nil)
 		req.Header = header
 		res, _ := http.DefaultClient.Do(req)
 
@@ -57,7 +116,7 @@ func TestGetShare(t *testing.T) {
 		var expected m.Share
 
 		json.Unmarshal(body, &actual)
-		ex, _ := json.Marshal(u.Shares[0])
+		ex, _ := json.Marshal(shares[0])
 		json.Unmarshal(ex, &expected)
 
 		assert.Equal(t, http.StatusOK, res.StatusCode)
@@ -65,7 +124,7 @@ func TestGetShare(t *testing.T) {
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, u.Shares[0].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, shares[0].ID.String()), nil)
 		res, _ := http.DefaultClient.Do(req)
 		assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
 	})
@@ -77,47 +136,47 @@ func TestGetShare(t *testing.T) {
 	})
 
 	t.Run("not ready", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, u.Shares[2].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", ts.URL, shares[2].ID.String()), nil)
 		res, _ := http.DefaultClient.Do(req)
 		assert.Equal(t, http.StatusForbidden, res.StatusCode)
 	})
 }
 
 func TestDownloadFile(t *testing.T) {
-	u.Reset()
+	Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
 	router.Handle("/share/{id}/attachment/{att}", EndpointREST(DownloadFile)).Methods("GET")
 	defer ts.Close()
 
 	t.Run("happy path", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, u.Shares[0].ID.String(), u.Shares[0].Attachments[0].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, shares[0].ID.String(), shares[0].Attachments[0].ID.String()), nil)
 		req.Header = map[string][]string{
 			"Authorization": {"Basic NTcxM2QyMjgtYTA0Mi00NDZkLWE1ZTQtMTgzYjE5ZmE4MzJhOnRlc3QxMjM="}, // pw: test123
 		}
 		res, _ := http.DefaultClient.Do(req)
 		body, _ := ioutil.ReadAll(res.Body)
-		assert.FileExists(t, filepath.Join(g.Conf.MediaDir, "data", u.Shares[0].ID.String(), u.Shares[0].Attachments[0].ID.String()))
-		expected, _ := ioutil.ReadFile(filepath.Join(g.Conf.MediaDir, "data", u.Shares[0].ID.String(), u.Shares[0].Attachments[0].ID.String()))
+		assert.FileExists(t, filepath.Join(os.Getenv("MEDIA_DIR"), "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
+		expected, _ := ioutil.ReadFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
 		assert.EqualValues(t, expected, body)
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, u.Shares[0].ID.String(), u.Shares[0].Attachments[0].ID.String()), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, shares[0].ID.String(), shares[0].Attachments[0].ID.String()), nil)
 		res, _ := http.DefaultClient.Do(req)
 		assert.EqualValues(t, http.StatusUnauthorized, res.StatusCode)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, u.Shares[0].ID.String(), "0dd9a011-612b-4f33-99c0-bfd687021014"), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", ts.URL, shares[0].ID.String(), "0dd9a011-612b-4f33-99c0-bfd687021014"), nil)
 		res, _ := http.DefaultClient.Do(req)
 		assert.EqualValues(t, http.StatusNotFound, res.StatusCode)
 	})
 }
 
 func TestOpenShare(t *testing.T) {
-	u.Reset()
+	Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
 	router.Handle("/shares", EndpointREST(OpenShare)).Methods("POST")
@@ -147,8 +206,8 @@ func TestOpenShare(t *testing.T) {
 		json.Unmarshal(body, &actual)
 		// checks
 		assert.Equal(t, http.StatusOK, res.StatusCode)
-		assert.DirExists(t, filepath.Join(g.Conf.MediaDir, "temp", newShare.ID.String()))
-		assert.NoDirExists(t, filepath.Join(g.Conf.MediaDir, "data", newShare.ID.String()))
+		assert.DirExists(t, filepath.Join(os.Getenv("MEDIA_DIR"), "temp", newShare.ID.String()))
+		assert.NoDirExists(t, filepath.Join(os.Getenv("MEDIA_DIR"), "data", newShare.ID.String()))
 
 		assert.Equal(t, newShare.ID, actual.ID)
 		//assert.(t, newShare, actual)
@@ -164,7 +223,7 @@ func TestOpenShare(t *testing.T) {
 }
 
 func TestCloseShare(t *testing.T) {
-	u.Reset()
+	Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
 	router.Handle("/share/{id}", EndpointREST(CloseShare)).Methods("POST")
@@ -189,7 +248,7 @@ func TestCloseShare(t *testing.T) {
 }
 
 func TestUploadAttachment(t *testing.T) {
-	u.Reset()
+	Reset()
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
 	router.Handle("/share/{id}/attachments", EndpointREST(UploadAttachment)).Methods("POST")

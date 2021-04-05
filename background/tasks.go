@@ -3,7 +3,7 @@ package background
 import (
 	"context"
 	m "github.com/chiefsend/api/models"
-	"github.com/chiefsend/api/util"
+	"github.com/chiefsend/api/services"
 	"github.com/hibiken/asynq"
 )
 
@@ -43,5 +43,5 @@ func HandleShareEmailTask(ctx context.Context, t *asynq.Task) error {
 	if err != nil {
 		return err
 	}
-	return util.SendMail(id)
+	return services.SendMail(id)
 }

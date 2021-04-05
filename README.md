@@ -1,7 +1,7 @@
 # ChiefSend API
-RESTful API for chiefsend written in Go
+RESTful API for ChiefSend written in Go
 
-## Application Architectur
+## Application Architecture
 - **Redis** Is used for temporary storage of the background job queue (set it up yourself beforehand)
 - **Database**: Stores information about the shares (set it up yourself beforehand)
 - **SendGrid**: Automatically sends eMails with the shares (set it up yourself beforehand)
@@ -19,16 +19,14 @@ RESTful API for chiefsend written in Go
 - **Background Job Worker**: Starts with the API Server
 
 ## Environment Variables:
-- `PORT`: the port the api listens to (default: 6969)
-- `CHUNK_SIZE`: max chunk size the api processes (default: 10 << 20 (10 MB))   
-- `DATABASE_URI`: the dsn string with all details for db connection (defaul: in memory redis database)
-- `MEDIA_DIR`: the path where the files should be saved (default: ./media)
+- `PORT`: the port the api listens to (example: 6969).
+- `DATABASE_URI`: the dsn string with all details for db connection
+- `MEDIA_DIR`: the path where the files should be saved (absolute path, example: ./media)
 - `SENDGRID_API_KEY`: sendgrid api key
 - `SENDGRID_SHARE_TEMPLATE`: template id
 - `SENDGRID_SENDER_MAIL`: senders mail (has to be verified in sendgrid)
-- `SENDGRID_SENDER_NAME`: senders name (default: ChiefSend)
-- `REDIS_URI`: redis uri (default: localhost:6379)
-- `REDIS_PASSWORD`: redis password (default: empty)
+- `SENDGRID_SENDER_NAME`: senders name (example: ChiefSend)
+- `REDIS_URI`: redis uri (example: localhost:6379)
 
 ## Supported Databases:
 Note: Create a database called "ChiefSend" beforehand
@@ -38,7 +36,9 @@ Note: Create a database called "ChiefSend" beforehand
 - SQL Server - example dsn: `sqlserver://user:password@localhost:1433?database=ChiefSend`
 
 ## Building and deploying the API
-TODO
+```
+go build -o chiefsend-api .
+```
 
 ## Configuring a reverse Proxy (nginx)
 In order to have HTTPS we can setup a reverse proxy with nginx.

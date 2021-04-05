@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/chiefsend/api/background"
-	g "github.com/chiefsend/api/globals"
 	m "github.com/chiefsend/api/models"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -144,7 +143,7 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", att.Filename))
-	http.ServeFile(w, r, filepath.Join(g.Conf.MediaDir, "data", shareID.String(), attID.String()))
+	http.ServeFile(w, r, filepath.Join(os.Getenv("MEDIA_DIR"), "data", shareID.String(), attID.String()))
 	return nil
 }
 
@@ -200,8 +199,8 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	// move files to permanent location
-	oldPath := filepath.Join(g.Conf.MediaDir, "temp", shareID.String())
-	newPath := filepath.Join(g.Conf.MediaDir, "data", shareID.String())
+	oldPath := filepath.Join(os.Getenv("MEDIA_DIR"), "temp", shareID.String())
+	newPath := filepath.Join(os.Getenv("MEDIA_DIR"), "data", shareID.String())
 	err = os.Rename(oldPath, newPath)
 	if err != nil {
 		return &HTTPError{err, "Can't move directory", 500}
@@ -215,7 +214,7 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 
 	// TODO check if stuff is even possible
 	// run some background jobs
-	redis := asynq.RedisClientOpt{Addr: g.Conf.RedisAddr}
+	redis := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")}
 	client := asynq.NewClient(redis)
 	// send email
 	mailTask := background.NewShareEmailTask(share)
@@ -260,7 +259,7 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	// Parse file from body
-	err = r.ParseMultipartForm(g.Conf.ChunkSize)
+	err = r.ParseMultipartForm(10 << 20) // 10 MB
 	if err != nil {
 		return &HTTPError{err, "Request does not contain a valid body (parsing form)", 400}
 	}
@@ -284,7 +283,7 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 		if err != nil {
 			return &HTTPError{err, "cant read file", 500}
 		}
-		err = ioutil.WriteFile(filepath.Join(g.Conf.MediaDir, "temp", shareID.String(), att.ID.String()), fileBytes, os.ModePerm)
+		err = ioutil.WriteFile(filepath.Join(os.Getenv("MEDIA_DIR"), "temp", shareID.String(), att.ID.String()), fileBytes, os.ModePerm)
 		if err != nil {
 			db.Rollback()
 			return &HTTPError{err, "cant save file", 500}
@@ -321,7 +320,7 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 
 	zipWriter := zip.NewWriter(w)
 	for _, file := range share.Attachments {
-		filePath := filepath.Join(g.Conf.MediaDir, "data", file.ShareID.String(), file.ID.String())
+		filePath := filepath.Join(os.Getenv("MEDIA_DIR"), "data", file.ShareID.String(), file.ID.String())
 
 		fileToZip, err := os.Open(filePath)
 		if err != nil {

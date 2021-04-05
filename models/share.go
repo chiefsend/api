@@ -1,7 +1,6 @@
 package models
 
 import (
-	g "github.com/chiefsend/api/globals"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"os"
@@ -43,12 +42,12 @@ func (sh *Share) BeforeCreate(tx *gorm.DB) error {
 	}
 	// create temporary dir
 	if sh.IsTemporary == true {
-		if err := os.MkdirAll(filepath.Join(g.Conf.MediaDir, "temp", sh.ID.String()), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Join(os.Getenv("MEDIA_DIR"), "temp", sh.ID.String()), os.ModePerm); err != nil {
 			tx.Rollback()
 			return nil
 		}
 	} else {
-		if err := os.MkdirAll(filepath.Join(g.Conf.MediaDir, "data", sh.ID.String()), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String()), os.ModePerm); err != nil {
 			tx.Rollback()
 			return nil
 		}
@@ -60,12 +59,12 @@ func (sh *Share) BeforeCreate(tx *gorm.DB) error {
 
 func (sh *Share) BeforeDelete(tx *gorm.DB) error {
 	if sh.IsTemporary == false {
-		if err := os.RemoveAll(filepath.Join(g.Conf.MediaDir, "data", sh.ID.String())); err != nil {
+		if err := os.RemoveAll(filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String())); err != nil {
 			tx.Rollback()
 			return err
 		}
 	}else {
-		if err := os.RemoveAll(filepath.Join(g.Conf.MediaDir, "temp", sh.ID.String())); err != nil {
+		if err := os.RemoveAll(filepath.Join(os.Getenv("MEDIA_DIR"), "temp", sh.ID.String())); err != nil {
 			tx.Rollback()
 			return err
 		}
