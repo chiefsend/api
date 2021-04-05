@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 	"io"
 	"io/ioutil"
 	"log"
@@ -56,23 +57,20 @@ var shares = []models.Share{
 }
 
 var url string
+var db *gorm.DB
 
 func TestMain(m *testing.M) {
-	db, err := models.GetDatabase()
+	dab, err := models.GetDatabase()
 	if err != nil {
 		log.Fatal("database brok")
 	}
+	db = dab
 	_ = db.AutoMigrate(&models.Share{})
 	_ = db.AutoMigrate(&models.Attachment{})
-	for _, sh := range shares {
-		db.Create(&sh)
-	}
-	_ = ioutil.WriteFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm)
 
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
 	defer ts.Close()
-
 	router.Handle("/shares", EndpointREST(AllShares)).Methods("GET")
 	router.Handle("/shares", EndpointREST(OpenShare)).Methods("POST")
 	router.Handle("/share/{id}", EndpointREST(GetShare)).Methods("GET")
@@ -80,8 +78,8 @@ func TestMain(m *testing.M) {
 	router.Handle("/share/{id}/attachments", EndpointREST(UploadAttachment)).Methods("POST")
 	router.Handle("/share/{id}/attachment/{att}", EndpointREST(DownloadFile)).Methods("GET")
 	router.Handle("/share/{id}/zip", EndpointREST(DownloadZip)).Methods("GET")
-
 	url = ts.URL
+
 	code := m.Run()
 
 	db.Where("1 = 1").Delete(&models.Share{})
@@ -93,6 +91,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestAllShares(t *testing.T) {
+	db.Create(&shares[1])
+	db.Create(&shares[2])
+	defer db.Delete(&shares[1])
+	defer db.Delete(&shares[2])
 
 	t.Run("happy path", func(t *testing.T) {
 		res, _ := http.Get(url + "/shares")
@@ -100,11 +102,17 @@ func TestAllShares(t *testing.T) {
 		var erg []models.Share
 		_ = json.Unmarshal(body, &erg)
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
+		assert.Len(t, erg, 1)
 		assert.EqualValues(t, shares[1], erg[0])
 	})
 }
 
 func TestGetShare(t *testing.T) {
+	db.Create(&shares[0])
+	defer db.Delete(&shares[0])
+	db.Create(&shares[2])
+	defer db.Delete(&shares[2])
+
 	t.Run("happy path", func(t *testing.T) {
 		header := map[string][]string{
 			"Authorization": {"Basic NTcxM2QyMjgtYTA0Mi00NDZkLWE1ZTQtMTgzYjE5ZmE4MzJhOnRlc3QxMjM="}, // pw: test123
@@ -145,6 +153,10 @@ func TestGetShare(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
+	db.Create(&shares[0])
+	defer db.Delete(&shares[0])
+	_ = ioutil.WriteFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm)
+
 	t.Run("happy path", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", url, shares[0].ID.String(), shares[0].Attachments[0].ID.String()), nil)
 		req.Header = map[string][]string{
@@ -213,6 +225,9 @@ func TestOpenShare(t *testing.T) {
 }
 
 func TestCloseShare(t *testing.T) {
+	db.Create(&shares[2])
+	defer db.Delete(&shares[2])
+
 	t.Run("happy path", func(t *testing.T) {
 		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/share/%s", url, shares[2].ID.String()), nil)
 		res, _ := http.DefaultClient.Do(req)
@@ -225,25 +240,33 @@ func TestCloseShare(t *testing.T) {
 		res, _ := http.DefaultClient.Do(req)
 		assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	})
-
-	t.Run("bad request", func(t *testing.T) {
-
-	})
 }
 
 func TestUploadAttachment(t *testing.T) {
+	db.Create(&shares[2])
+	defer db.Delete(&shares[2])
+
 	t.Run("happy path", func(t *testing.T) {
+		// build body (multipart/form-data)
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 		fw, _ := writer.CreateFormFile("file", "poggers.txt")
-		_, _ = io.Copy(fw, strings.NewReader("POG POG POG POG"))
-		_ = writer.Close()
+		_, _ = io.Copy(fw, strings.NewReader("POG POG POG POG\n"))  // FIXME "unexpected EOF"
+		defer writer.Close()
 
 		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/share/%s/attachments", url, shares[2].ID.String()), bytes.NewReader(body.Bytes()))
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		res, _ := http.DefaultClient.Do(req)
 
+		b, _ := ioutil.ReadAll(res.Body)
+		fmt.Println(string(b))
+
+		var share models.Share
+		db, _ := models.GetDatabase()
+		db.Where("ID = ?", shares[2].ID.String()).First(&share)
+
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
+		assert.Len(t, share.Attachments, 1)
 	})
 
 	t.Run("bad request", func(t *testing.T) {
