@@ -5,12 +5,8 @@ import (
 	"fmt"
 	"github.com/chiefsend/api/controllers"
 	m "github.com/chiefsend/api/models"
-	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-	"github.com/rs/cors"
 	"log"
-	"net/http"
-	"os"
 )
 
 func main() {
@@ -38,23 +34,6 @@ func main() {
 	// start the server(s)
 	fmt.Println("Lets go!")
 	//go background.StartBackgroundWorkers()
-	ConfigureRoutes()
+	controllers.ConfigureRoutes()
 }
 
-func ConfigureRoutes() {
-	router := mux.NewRouter()
-	handler := cors.Default().Handler(router)
-
-	router.Handle("/shares", controllers.EndpointREST(controllers.AllShares)).Methods("GET")
-	router.Handle("/shares", controllers.EndpointREST(controllers.OpenShare)).Methods("POST")
-
-	router.Handle("/share/{id}", controllers.EndpointREST(controllers.GetShare)).Methods("GET")
-	router.Handle("/share/{id}", controllers.EndpointREST(controllers.CloseShare)).Methods("POST")
-
-	router.Handle("/share/{id}/attachments", controllers.EndpointREST(controllers.UploadAttachment)).Methods("POST")
-
-	router.Handle("/share/{id}/attachment/{att}", controllers.EndpointREST(controllers.DownloadFile)).Methods("GET")
-	router.Handle("/share/{id}/zip", controllers.EndpointREST(controllers.DownloadZip)).Methods("GET")
-
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler))
-}
