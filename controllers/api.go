@@ -9,7 +9,6 @@ import (
 	m "github.com/chiefsend/api/models"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 	"io"
 	"io/ioutil"
@@ -212,22 +211,16 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
 
-	// TODO check if stuff is even possible
-	// run some background jobs
-	redis := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")}
-	client := asynq.NewClient(redis)
 	// send email
 	mailTask := background.NewShareEmailTask(share)
-	_, err = client.Enqueue(mailTask)
-	if err != nil {
-		return &HTTPError{err, "Can't start background task", 500}
+	if err := background.EnqueueJob(mailTask, nil); err != nil {
+		return &HTTPError{err, "Can't start send eMail background task", 500}
 	}
 	// delete share
 	if share.Expires != nil {
 		deleteTask := background.NewDeleteShareTaks(share)
-		_, err = client.Enqueue(deleteTask, asynq.ProcessAt(*share.Expires))
-		if err != nil {
-			return &HTTPError{err, "Can't start background task", 500}
+		if background.EnqueueJob(deleteTask, share.Expires); err != nil {
+			return &HTTPError{err, "Can't start deleteShare task", 500}
 		}
 	}
 

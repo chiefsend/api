@@ -4,10 +4,8 @@ import (
 	"errors"
 	m "github.com/chiefsend/api/models"
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	"os"
 	"testing"
 	"time"
 )
@@ -23,15 +21,10 @@ var share = m.Share {
 
 func TestDeleteShareTaks(t *testing.T) {
 	db, _ := m.GetDatabase()
-	// test client
-	r := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")}
-	client := asynq.NewClient(r)
-
 	task := NewDeleteShareTaks(share)
-	// Process the task immediately.
-	_, err := client.Enqueue(task)
+	err := EnqueueJob(task, nil)
 	assert.Nil(t, err)
-	time.Sleep(3 * time.Second)
+	time.Sleep(time.Second)
 	var sh m.Share
 	err = db.Where("ID = ?", share.ID.String()).First(&sh).Error
 	assert.False(t, errors.Is(err, gorm.ErrRecordNotFound))

@@ -4,11 +4,12 @@ import (
 	"github.com/hibiken/asynq"
 	"log"
 	"os"
+	"time"
 )
 
 func StartBackgroundWorkers() {
-	r := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")}
-	srv := asynq.NewServer(r, asynq.Config{
+	redis := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")}
+	srv := asynq.NewServer(redis, asynq.Config{
 		Concurrency: 10,
 	})
 
@@ -19,4 +20,19 @@ func StartBackgroundWorkers() {
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func EnqueueJob(task *asynq.Task, at *time.Time) error {
+	redis := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")} // TODO delet this line
+	client := asynq.NewClient(redis)
+	if at != nil {
+		if _, err := client.Enqueue(task, asynq.ProcessAt(*at)); err != nil {
+			return err
+		}
+	} else {
+		if _, err := client.Enqueue(task); err != nil {
+			return err
+		}
+	}
+	return nil
 }
