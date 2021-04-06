@@ -155,7 +155,9 @@ func TestGetShare(t *testing.T) {
 func TestDownloadFile(t *testing.T) {
 	db.Create(&shares[0])
 	defer db.Delete(&shares[0])
-	_ = ioutil.WriteFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm)
+	if err := ioutil.WriteFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm); err == nil {
+		defer os.Remove(filepath.Join(os.Getenv("MEDIA_DIR"), "data", shares[0].ID.String(), shares[0].Attachments[0].ID.String()))
+	}
 
 	t.Run("happy path", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", url, shares[0].ID.String(), shares[0].Attachments[0].ID.String()), nil)
@@ -231,7 +233,6 @@ func TestCloseShare(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/share/%s", url, shares[2].ID.String()), nil)
 		res, _ := http.DefaultClient.Do(req)
-
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 	})
 
@@ -248,13 +249,12 @@ func TestUploadAttachment(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
 		// build body (multipart/form-data)
-		body := &bytes.Buffer{}
-		writer := multipart.NewWriter(body)
+		buff := bytes.Buffer{}
+		writer := multipart.NewWriter(&buff)
 		fw, _ := writer.CreateFormFile("file", "poggers.txt")
-		_, _ = io.Copy(fw, strings.NewReader("POG POG POG POG\n"))  // FIXME "unexpected EOF"
-		defer writer.Close()
-
-		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/share/%s/attachments", url, shares[2].ID.String()), bytes.NewReader(body.Bytes()))
+		_, _ = io.Copy(fw, strings.NewReader("POG POG POG\r\n"))
+		// request
+		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/share/%s/attachments", url, shares[2].ID.String()), bytes.NewReader(buff.Bytes()))
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		res, _ := http.DefaultClient.Do(req)
 

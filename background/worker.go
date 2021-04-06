@@ -7,9 +7,11 @@ import (
 	"time"
 )
 
+var redis *asynq.RedisClientOpt
+
 func StartBackgroundWorkers() {
-	redis := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")}
-	srv := asynq.NewServer(redis, asynq.Config{
+	redis = &asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")}
+	srv := asynq.NewServer(*redis, asynq.Config{
 		Concurrency: 10,
 	})
 
@@ -23,8 +25,11 @@ func StartBackgroundWorkers() {
 }
 
 func EnqueueJob(task *asynq.Task, at *time.Time) error {
-	redis := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_URI")} // TODO delet this line
-	client := asynq.NewClient(redis)
+	if redis == nil {
+		return nil
+	}
+
+	client := asynq.NewClient(*redis)
 	if at != nil {
 		if _, err := client.Enqueue(task, asynq.ProcessAt(*at)); err != nil {
 			return err

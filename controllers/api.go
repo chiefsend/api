@@ -352,16 +352,3 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 
 	return nil
 }
-
-/////////////////////////////////
-////////// functions ////////////
-/////////////////////////////////
-
-func SendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(res)
-	if err != nil {
-		return &HTTPError{err, "Can't encode data", 500}
-	}
-	return nil
-}

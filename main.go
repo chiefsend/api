@@ -36,4 +36,3 @@ func main() {
 	//go background.StartBackgroundWorkers()
 	controllers.ConfigureRoutes()
 }
-
