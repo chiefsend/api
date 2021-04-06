@@ -1,6 +1,9 @@
 # ChiefSend API
 RESTful API for ChiefSend written in Go
 
+## Documentation
+https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
+
 ## Application Architecture
 - **Redis** Is used for temporary storage of the background job queue (set it up yourself beforehand)
 - **Database**: Stores information about the shares (set it up yourself beforehand)
