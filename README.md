@@ -14,15 +14,18 @@ https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
 - **Reverse Proxy (nginx)**: Takes care of exposing the api to the outside world
 
 ## Environment Variables:
-- `PORT`: the port the api listens to (example: 6969).
-- `DATABASE_URI`: the dsn string with all details for db connection
-- `MEDIA_DIR`: the path where the files should be saved (absolute path)
-- `SENDGRID_API_KEY`: sendgrid api key
-- `SENDGRID_SHARE_TEMPLATE`: template id
-- `SENDGRID_SENDER_MAIL`: senders mail (has to be verified in sendgrid)
-- `SENDGRID_SENDER_NAME`: senders name (example: ChiefSend)
-- `REDIS_URI`: redis uri (example: localhost:6379)
-- `ADMIN_KEY`: the admin key which is passed as a bearer token to authenticate delete and update operations
+- `PORT`: the port the api listens to (required, example: 6969).
+- `DATABASE_URI`: the dsn string with all details for db connection (required)
+- `MEDIA_DIR`: the path where the files should be saved (required, absolute path)
+- `SENDGRID_API_KEY`: sendgrid api key (optional)
+- `SENDGRID_SHARE_TEMPLATE`: template id (required if using sendgrid)
+- `SENDGRID_SENDER_MAIL`: senders mail (required if using sendgrid, has to be verified in sendgrid)
+- `SENDGRID_SENDER_NAME`: senders name (required if using sendgrid, example: ChiefSend)
+- `REDIS_URI`: redis uri (required, example: localhost:6379)
+- `REDIS_DB`: number of redis db (required, valid: 0..15)
+- `REDIS_PASSWORD`: redis password (optional, omit if none)
+- `BACKGROUND_WORKERS`: number of background workers (optional, default: 5)
+- `ADMIN_KEY`: the admin key which is passed as a bearer token to authenticate delete and update operations (required)
 
 
 ## Supported Databases:
