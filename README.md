@@ -22,6 +22,8 @@ https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
 - `SENDGRID_SENDER_MAIL`: senders mail (has to be verified in sendgrid)
 - `SENDGRID_SENDER_NAME`: senders name (example: ChiefSend)
 - `REDIS_URI`: redis uri (example: localhost:6379)
+- `ADMIN_KEY`: the admin key which is passed as a bearer token to authenticate delete and update operations
+
 
 ## Supported Databases:
 Note: Create a database called "ChiefSend" beforehand
