@@ -42,25 +42,24 @@ func AllShares(w http.ResponseWriter, _ *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't connect to database", 500}
 	}
-
 	var shares []m.Share
 	err = db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-	return SendJSON(w, shares)
+	return sendJSON(w, shares)
 }
 
 func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
-	db, err := m.GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't connect to database", 500}
-	}
-
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
+	}
+
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
 	}
 
 	var share m.Share
@@ -76,17 +75,11 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	// auth
-	if share.Password != "" {
-		sid, pass, _ := r.BasicAuth()
-		if sid != share.ID.String() {
-			return &HTTPError{errors.New("unauthorized"), "wrong username", 401}
-		}
-		if pass != share.Password {
-			return &HTTPError{errors.New("unauthorized"), "wrong password", 401}
-		}
+	if ok, err := checkBasicAuth(r, share); err != nil || ok == false {
+		return &HTTPError{err, "Unauthorized", 401}
 	}
 
-	return SendJSON(w, share)
+	return sendJSON(w, share)
 }
 
 func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
@@ -130,15 +123,8 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
 	}
 
-	// auth
-	if share.Password != "" {
-		sid, pass, _ := r.BasicAuth()
-		if sid != share.ID.String() {
-			return &HTTPError{errors.New("unauthorized"), "wrong username", 401}
-		}
-		if pass != share.Password {
-			return &HTTPError{errors.New("unauthorized"), "wrong password", 401}
-		}
+	if ok, err := checkBasicAuth(r, share); err != nil || ok == false {
+		return &HTTPError{err, "Unauthorized", 401}
 	}
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", att.Filename))
@@ -170,7 +156,7 @@ func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Can't create data", 500}
 	}
 
-	return SendJSON(w, newShare)
+	return sendJSON(w, newShare)
 }
 
 func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
@@ -219,12 +205,12 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	// delete share
 	if share.Expires != nil {
 		deleteTask := background.NewDeleteShareTaks(share)
-		if background.EnqueueJob(deleteTask, share.Expires); err != nil {
+		if err := background.EnqueueJob(deleteTask, share.Expires); err != nil {
 			return &HTTPError{err, "Can't start deleteShare task", 500}
 		}
 	}
 
-	return SendJSON(w, share)
+	return sendJSON(w, share)
 }
 
 func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
@@ -284,7 +270,7 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 		db.Commit()
 	}
 
-	return SendJSON(w, att)
+	return sendJSON(w, att)
 }
 
 func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
@@ -350,5 +336,84 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "error when closing zip", 500}
 	}
 
+	return nil
+}
+
+//////////////////////////////////////////
+///////////// Admin Routes ///////////////
+//////////////////////////////////////////
+func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	vars := mux.Vars(r)
+	shareID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		return &HTTPError{err, "invalid URL param", 400}
+	}
+
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
+	var share m.Share
+	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &HTTPError{err, "record not found", 404}
+	}
+	if err != nil {
+		return &HTTPError{err, "Can't fetch data", 500}
+	}
+
+	if auth, err := checkBearerAuth(r); err != nil || auth == false {
+		return &HTTPError{err, "Authentication Failed", 401}
+	}
+
+	// delete
+	deleteTask := background.NewDeleteShareTaks(share)
+	if err := background.EnqueueJob(deleteTask, share.Expires); err != nil {
+		return &HTTPError{err, "Can't start deleteShare task", 500}
+	}
+
+	return nil
+}
+
+func UpdateShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	// auth
+	if ok, err := checkBearerAuth(r); err != nil || ok == false {
+		return &HTTPError{err, "Unauthorized", 401}
+	}
+	// parse url
+	vars := mux.Vars(r)
+	shareID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		return &HTTPError{err, "invalid URL param", 400}
+	}
+	//  get database
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+	// get share
+	var share m.Share
+	err = db.Where("ID = ?", shareID).First(&share).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &HTTPError{err, "record not found", 404}
+	}
+	if err != nil {
+		return &HTTPError{err, "Can't fetch data", 500}
+	}
+	// update share
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return &HTTPError{err, "Request does not contain a valid body", 400}
+	}
+	err = json.Unmarshal(reqBody, &share)
+	if err != nil {
+		return &HTTPError{err, "Can't parse body", 400}
+	}
+	err = db.Save(&share).Error
+	if err != nil {
+		return &HTTPError{err, "Can't edit data", 500}
+	}
+	// finish
 	return nil
 }

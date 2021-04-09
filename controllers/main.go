@@ -19,16 +19,19 @@ func ConfigureRoutes() {
 
 	router.Handle("/share/{id}", EndpointREST(GetShare)).Methods("GET")
 	router.Handle("/share/{id}", EndpointREST(CloseShare)).Methods("POST")
+	router.Handle("/share/{id}", EndpointREST(DeleteShare)).Methods("DELETE")
+	router.Handle("/share/{id}", EndpointREST(UpdateShare)).Methods("PUT")
 
 	router.Handle("/share/{id}/attachments", EndpointREST(UploadAttachment)).Methods("POST")
 
 	router.Handle("/share/{id}/attachment/{att}", EndpointREST(DownloadFile)).Methods("GET")
+
 	router.Handle("/share/{id}/zip", EndpointREST(DownloadZip)).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler))
 }
 
-func SendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
+func sendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(res)
 	if err != nil {
