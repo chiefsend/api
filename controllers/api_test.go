@@ -83,6 +83,7 @@ func TestMain(m *testing.M) {
 	router.Handle("/share/{id}", EndpointREST(UpdateShare)).Methods("PUT")
 	router.Handle("/share/{id}/attachments", EndpointREST(UploadAttachment)).Methods("POST")
 	router.Handle("/share/{id}/attachment/{att}", EndpointREST(DownloadFile)).Methods("GET")
+	router.Handle("/share/{id}/attachment/{att}", EndpointREST(DeleteAttachment)).Methods("DELETE")
 	router.Handle("/share/{id}/zip", EndpointREST(DownloadZip)).Methods("GET")
 	url = ts.URL
 
@@ -315,7 +316,6 @@ func TestUpdateShare(t *testing.T) {
 		b, _ := json.Marshal(sh)
 		req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), bytes.NewReader(b))
 		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
-		fmt.Println(req.Header.Get("Authorization"))
 		res, _ := http.DefaultClient.Do(req)
 		// parse
 		var actual models.Share
@@ -323,5 +323,26 @@ func TestUpdateShare(t *testing.T) {
 		// assertions
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 		assert.Equal(t, sh, actual)
+	})
+}
+
+func TestDeleteAttachment(t *testing.T) {
+	sh := shares[0]
+	db.Create(&sh)
+	defer db.Delete(&sh)
+	path := filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String(), sh.Attachments[0].ID.String())
+	if err := ioutil.WriteFile(path, []byte("KEKW KEKW KEKW"), os.ModePerm); err == nil {
+		defer os.Remove(path)
+	}
+
+	t.Run("happy path", func(t *testing.T) {
+		assert.FileExists(t, path)
+		// request
+		req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/share/%s/attachment/%s", url, sh.ID.String(), sh.Attachments[0].ID.String()), nil)
+		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		res, _ := http.DefaultClient.Do(req)
+		// assertions
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.NoFileExists(t, path)
 	})
 }

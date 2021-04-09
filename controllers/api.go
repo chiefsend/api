@@ -108,7 +108,7 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	if att.ShareID != shareID {
-		return &HTTPError{errors.New("share doesent match attachment"), "share doesent match attachment", 400}
+		return &HTTPError{errors.New("share doesent match attachment"), "share doesent match attachment", 404}
 	}
 
 	var share m.Share
@@ -415,5 +415,52 @@ func UpdateShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
 	// finish
+	return nil
+}
+
+func DeleteAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+
+	vars := mux.Vars(r)
+	shareID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		return &HTTPError{err, "invalid URL param", 400}
+	}
+	attID, err := uuid.Parse(vars["att"])
+	if err != nil {
+		return &HTTPError{err, "invalid URL param", 400}
+	}
+
+	var att m.Attachment
+	err = db.Where("id = ?", attID.String()).First(&att).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &HTTPError{err, "Record not found", 404}
+	}
+	if err != nil {
+		return &HTTPError{err, "Can't fetch data", 500}
+	}
+
+	if att.ShareID != shareID {
+		return &HTTPError{errors.New("share doesent match attachment"), "share doesent match attachment", 404}
+	}
+
+	var share m.Share
+	err = db.Where("id = ?", att.ShareID.String()).First(&share).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &HTTPError{err, "Record not found", 404}
+	}
+	if err != nil {
+		return &HTTPError{err, "Can't fetch data", 500}
+	}
+
+	// delete attachment
+	err = db.Delete(&att).Error
+	if err != nil {
+		return &HTTPError{err, "can't delete attachment", 500}
+	}
+
 	return nil
 }

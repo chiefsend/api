@@ -25,6 +25,7 @@ func ConfigureRoutes() {
 	router.Handle("/share/{id}/attachments", EndpointREST(UploadAttachment)).Methods("POST")
 
 	router.Handle("/share/{id}/attachment/{att}", EndpointREST(DownloadFile)).Methods("GET")
+	router.Handle("/share/{id}/attachment/{att}", EndpointREST(DeleteAttachment)).Methods("DELETE")
 
 	router.Handle("/share/{id}/zip", EndpointREST(DownloadZip)).Methods("GET")
 
