@@ -27,7 +27,6 @@ type Share struct {
 
 func (sh *Share) AfterFind(tx *gorm.DB) error {
 	sh.Emails = strings.Split(sh.EMailsDB, ";")
-	sh.Password = ""
 	return nil
 }
 
@@ -55,11 +54,6 @@ func (sh *Share) BeforeCreate(tx *gorm.DB) error {
 	}
 	//convert email adresses
 	sh.EMailsDB = strings.Join(sh.Emails, ";")
-	return nil
-}
-
-func (sh *Share) AfterCreate(tx *gorm.DB) error {
-	sh.Password = ""
 	return nil
 }
 

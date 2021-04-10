@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ type EndpointREST func(http.ResponseWriter, *http.Request) *HTTPError
 
 func (fn EndpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil { // e is *HTTPError, not os.Error.
+		log.Println(fmt.Sprintf("%d: %s - %s", (*e).Code, (*e).Error.Error(), (*e).Message))
 		if e.Code == 401 {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Please enter the password"`)
 		}
@@ -137,12 +139,11 @@ func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't connect to database", 500}
 	}
-
+	// parse body
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return &HTTPError{err, "Request does not contain a valid body", 400}
 	}
-
 	var newShare m.Share
 	err = json.Unmarshal(reqBody, &newShare)
 	if err != nil {
@@ -233,7 +234,7 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-	if share.IsTemporary == false {
+	if share.IsTemporary == false { // TODO unless ADMIN key is passed
 		return &HTTPError{errors.New("share is not finalized"), "Can't upload to finalized Shares.", 403}
 	}
 

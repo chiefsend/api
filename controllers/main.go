@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/chiefsend/api/models"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"log"
@@ -33,6 +34,10 @@ func ConfigureRoutes() {
 }
 
 func sendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
+	switch v := res.(type) {
+	case models.Share: v.Password = ""
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(res)
 	if err != nil {
