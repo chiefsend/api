@@ -16,7 +16,7 @@ type Share struct {
 	Expires       *time.Time `json:"expires,omitempty"`
 	DownloadLimit int        `json:"download_limit,omitempty"`
 	IsPublic      bool       `json:"is_public"  gorm:"not null; default:false; index"`
-	Password      string     `json:"-"`
+	Password      string     `json:"password,omitempty"`
 	Emails        []string   `json:"emails,omitempty" gorm:"-"`
 	EMailsDB      string     `json:"-"`
 	IsTemporary   bool       `json:"-"  gorm:"not null"`
@@ -27,6 +27,7 @@ type Share struct {
 
 func (sh *Share) AfterFind(tx *gorm.DB) error {
 	sh.Emails = strings.Split(sh.EMailsDB, ";")
+	sh.Password = ""
 	return nil
 }
 
@@ -54,6 +55,11 @@ func (sh *Share) BeforeCreate(tx *gorm.DB) error {
 	}
 	//convert email adresses
 	sh.EMailsDB = strings.Join(sh.Emails, ";")
+	return nil
+}
+
+func (sh *Share) AfterCreate(tx *gorm.DB) error {
+	sh.Password = ""
 	return nil
 }
 
