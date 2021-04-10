@@ -2,8 +2,8 @@ package background
 
 import (
 	"context"
-	m "github.com/chiefsend/api/models"
 	"github.com/chiefsend/api/mail"
+	m "github.com/chiefsend/api/models"
 	"github.com/hibiken/asynq"
 )
 
@@ -19,7 +19,7 @@ func NewShareEmailTask(share m.Share) *asynq.Task {
 	return asynq.NewTask(ShareEmail, payload)
 }
 
-func NewDeleteShareTaks(share m.Share) *asynq.Task {
+func NewDeleteShareTask(share m.Share) *asynq.Task {
 	payload := map[string]interface{}{"share_id": share.ID.String()}
 	return asynq.NewTask(DeleteShare, payload)
 }

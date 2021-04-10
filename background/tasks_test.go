@@ -35,14 +35,14 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestDeleteShareTaks(t *testing.T) {
+func TestDeleteShareTask(t *testing.T) {
 	db.Create(&share)
 	defer db.Delete(&share)
 	go StartBackgroundWorkers()
 	defer StopBackgroundWorkers()
 
 	t.Run("happy path", func(t *testing.T) {
-		task := NewDeleteShareTaks(share)
+		task := NewDeleteShareTask(share)
 		err := EnqueueJob(task, nil)
 		assert.Nil(t, err)
 		time.Sleep(time.Second)
