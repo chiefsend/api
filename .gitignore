@@ -23,11 +23,13 @@ media/
 
 # IDE
 .idea/
+.vscode/
 
 # logs
 log.txt
 log*
 *log
+/logs
 
 # secret files
 *.htpasswd
