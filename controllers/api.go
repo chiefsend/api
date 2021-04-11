@@ -39,16 +39,28 @@ func (fn EndpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 /////////////////////////////////
 //////////// routes /////////////
 /////////////////////////////////
-func AllShares(w http.ResponseWriter, _ *http.Request) *HTTPError {
+func AllShares(w http.ResponseWriter, r *http.Request) *HTTPError {
+	// get database
 	db, err := m.GetDatabase()
 	if err != nil {
 		return &HTTPError{err, "Can't connect to database", 500}
 	}
+	// see if (optional) admin key is provided to also return temporary shares
+	admin, err := CheckBearerAuth(r)
+	if err != nil {
+		return &HTTPError{err, "can't check authorization header", 500}
+	}
+	// get shares
 	var shares []m.Share
-	err = db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
+	if admin {
+		err = db.Where("1=1").Find(&shares).Error
+	} else {
+		err = db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
+	}
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
+	// send shares
 	return sendJSON(w, shares)
 }
 
@@ -77,7 +89,7 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 
 	// auth
-	if ok, err := checkBasicAuth(r, share); err != nil || ok == false {
+	if basic, err := CheckBasicAuth(r, share); err != nil || basic == false {
 		return &HTTPError{err, "Unauthorized", 401}
 	}
 
@@ -125,7 +137,7 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
 	}
 
-	if ok, err := checkBasicAuth(r, share); err != nil || ok == false {
+	if ok, err := CheckBasicAuth(r, share); err != nil || ok == false {
 		return &HTTPError{err, "Unauthorized", 401}
 	}
 
@@ -364,7 +376,7 @@ func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
 
-	if auth, err := checkBearerAuth(r); err != nil || auth == false {
+	if auth, err := CheckBearerAuth(r); err != nil || auth == false {
 		return &HTTPError{err, "Authentication Failed", 401}
 	}
 
@@ -379,7 +391,7 @@ func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 
 func UpdateShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	// auth
-	if ok, err := checkBearerAuth(r); err != nil || ok == false {
+	if ok, err := CheckBearerAuth(r); err != nil || ok == false {
 		return &HTTPError{err, "Unauthorized", 401}
 	}
 	// parse url

@@ -112,6 +112,22 @@ func TestAllShares(t *testing.T) {
 		assert.Len(t, actual, 1)
 		assert.Equal(t, expected, actual)
 	})
+
+	t.Run("with admin key", func(t *testing.T) {
+		// do request
+		req, _ := http.NewRequest("GET", fmt.Sprint(url, "/shares"), nil)
+		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		res, _ := http.DefaultClient.Do(req)
+		// parse
+		body, _ := ioutil.ReadAll(res.Body)
+		var actual []models.Share
+		var expected = []models.Share{shares[1], shares[2]}
+		_ = json.Unmarshal(body, &actual)
+		// assertions
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Len(t, actual, 2)
+		assert.Equal(t, expected, actual)
+	})
 }
 
 func TestGetShare(t *testing.T) {

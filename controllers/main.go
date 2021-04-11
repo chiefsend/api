@@ -35,7 +35,9 @@ func ConfigureRoutes() {
 
 func sendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
 	switch v := res.(type) {
-	case models.Share: v.Password = ""
+	case models.Share:
+		v.Password = ""
+		v.IsTemporary = false
 	}
 
 	w.Header().Set("Content-Type", "application/json")

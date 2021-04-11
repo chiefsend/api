@@ -19,7 +19,7 @@ type Share struct {
 	Password      string     `json:"password,omitempty"`
 	Emails        []string   `json:"emails,omitempty" gorm:"-"`
 	EMailsDB      string     `json:"-"`
-	IsTemporary   bool       `json:"-"  gorm:"not null"`
+	IsTemporary   bool       `json:"is_temporary,omitempty" gorm:"not null"`
 
 	Attachments []Attachment `json:"files,omitempty"  gorm:"constraint:OnDelete:CASCADE"`
 }
