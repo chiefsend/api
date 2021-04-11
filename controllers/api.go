@@ -76,6 +76,11 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't connect to database", 500}
 	}
+	// see if (optional) admin key is provided to allow getting share anyway
+	admin, err := CheckBearerAuth(r)
+	if err != nil {
+		return &HTTPError{err, "can't check authorization header", 500}
+	}
 	// get share
 	var share m.Share
 	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
@@ -85,13 +90,8 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-	if share.IsTemporary == true {
+	if !admin && share.IsTemporary == true {
 		return &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
-	}
-	// see if (optional) admin key is provided to allow getting share anyway
-	admin, err := CheckBearerAuth(r)
-	if err != nil {
-		return &HTTPError{err, "can't check authorization header", 500}
 	}
 	// auth
 	if !admin {
@@ -162,6 +162,7 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	// get database
 	db, err := m.GetDatabase()
 	if err != nil {
 		return &HTTPError{err, "Can't connect to database", 500}
@@ -171,6 +172,7 @@ func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Request does not contain a valid body", 400}
 	}
+	// set share
 	var newShare m.Share
 	err = json.Unmarshal(reqBody, &newShare)
 	if err != nil {
@@ -183,22 +185,23 @@ func OpenShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't create data", 500}
 	}
-
+	// return share
 	return sendJSON(w, newShare)
 }
 
 func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
-	db, err := m.GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't connect to database", 500}
-	}
-
+	// parse url
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
+	// get database
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+	// get share
 	var share m.Share
 	err = db.Where("id = ?", shareID.String()).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -210,8 +213,7 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if share.IsTemporary == false { // already closed
 		return nil
 	}
-
-	// move files to permanent location
+	// move files to permanent location // TODO check if media/temp and media/data exists!
 	oldPath := filepath.Join(os.Getenv("MEDIA_DIR"), "temp", shareID.String())
 	newPath := filepath.Join(os.Getenv("MEDIA_DIR"), "data", shareID.String())
 	err = os.Rename(oldPath, newPath)
@@ -220,11 +222,10 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	// set stuff permanent
 	share.IsTemporary = false
-	err = db.Save(&share).Error
-	if err != nil {
+	if err := db.Save(&share).Error; err != nil {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
-
+	// run some background jobs
 	// send email
 	mailTask := background.NewShareEmailTask(share)
 	if err := background.EnqueueJob(mailTask, nil); err != nil {
@@ -237,22 +238,28 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 			return &HTTPError{err, "Can't start deleteShare task", 500}
 		}
 	}
-
+	// return share
 	return sendJSON(w, share)
 }
 
 func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
-	db, err := m.GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't connect to database", 500}
-	}
-
+	// parse url
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
+	// get database
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+	// see if (optional) admin key is provided to allow adding files anyway
+	admin, err := CheckBearerAuth(r)
+	if err != nil {
+		return &HTTPError{err, "can't check authorization header", 500}
+	}
+	// get share
 	var share m.Share
 	err = db.Where("id = ?", shareID.String()).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -261,10 +268,9 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-	if share.IsTemporary == false { // TODO unless ADMIN key is passed
+	if !admin && share.IsTemporary == false {
 		return &HTTPError{errors.New("share is not finalized"), "Can't upload to finalized Shares.", 403}
 	}
-
 	// Parse file from body
 	err = r.ParseMultipartForm(10 << 20) // 10 MB
 	if err != nil {
@@ -275,7 +281,7 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Request does not contain a valid body (parsing file)", 400}
 	}
 	defer file.Close()
-
+	// add file to db and file system
 	var att m.Attachment
 	{
 		// add database entry // TODO error handling for whole transaction
@@ -297,22 +303,28 @@ func UploadAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 		}
 		db.Commit()
 	}
-
+	// return new attachment
 	return sendJSON(w, att)
 }
 
 func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
-	db, err := m.GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't connect to database", 500}
-	}
-
+	// parse url
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
+	// get database
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+	// see if (optional) admin key is provided to allow getting share anyway
+	admin, err := CheckBearerAuth(r)
+	if err != nil {
+		return &HTTPError{err, "can't check authorization header", 500}
+	}
+	// get share
 	var share m.Share
 	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -321,10 +333,10 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-	if share.IsTemporary == true {
+	if !admin && share.IsTemporary == true {
 		return &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
 	}
-
+	// create and send zip
 	zipWriter := zip.NewWriter(w)
 	for _, file := range share.Attachments {
 		filePath := filepath.Join(os.Getenv("MEDIA_DIR"), "data", file.ShareID.String(), file.ID.String())
@@ -363,7 +375,6 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "error when closing zip", 500}
 	}
-
 	return nil
 }
 
