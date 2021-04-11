@@ -221,6 +221,20 @@ func TestDownloadFile(t *testing.T) {
 		res, _ := http.DefaultClient.Do(req)
 		assert.EqualValues(t, http.StatusNotFound, res.StatusCode)
 	})
+
+	t.Run("with admin key", func(t *testing.T) {
+		// request
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", url, sh.ID.String(), sh.Attachments[0].ID.String()), nil)
+		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		res, _ := http.DefaultClient.Do(req)
+		// parse
+		body, _ := ioutil.ReadAll(res.Body)
+		expected, _ := ioutil.ReadFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String(), sh.Attachments[0].ID.String()))
+		// assert
+		assert.FileExists(t, filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String(), sh.Attachments[0].ID.String()))
+		assert.EqualValues(t, expected, body)
+		assert.EqualValues(t, http.StatusOK, res.StatusCode)
+	})
 }
 
 func TestOpenShare(t *testing.T) {
