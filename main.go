@@ -25,7 +25,7 @@ func main() {
 			if err != nil || db == nil {
 				log.Fatal("Cannot connect database")
 			}
-			// Migrate the schema (temporary) FIXME: nur mit passender flag?
+			// Migrate the schema (temporary)
 			if err := db.AutoMigrate(&m.Share{}); err != nil {
 				log.Fatal("Cannot migrate database")
 			}

@@ -53,7 +53,7 @@ func AllShares(w http.ResponseWriter, r *http.Request) *HTTPError {
 	// get shares
 	var shares []m.Share
 	if admin {
-		err = db.Where("1=1").Find(&shares).Error
+		err = db.Find(&shares).Error
 	} else {
 		err = db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
 	}
@@ -335,6 +335,12 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	if !admin && share.IsTemporary == true {
 		return &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
+	}
+	// auth
+	if !admin {
+		if basic, err := CheckBasicAuth(r, share); err != nil || basic == false {
+			return &HTTPError{err, "Unauthorized", 401}
+		}
 	}
 	// create and send zip
 	zipWriter := zip.NewWriter(w)
