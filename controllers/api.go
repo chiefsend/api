@@ -382,17 +382,18 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 ///////////// Admin Routes ///////////////
 //////////////////////////////////////////
 func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	// parse url
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
+	// get database
 	db, err := m.GetDatabase()
 	if err != nil {
 		return &HTTPError{err, "Can't connect to database", 500}
 	}
-
+	// get share
 	var share m.Share
 	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -401,30 +402,29 @@ func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-
+	// admin auth
 	if auth, err := CheckBearerAuth(r); err != nil || auth == false {
 		return &HTTPError{err, "Authentication Failed", 401}
 	}
-
 	// delete
 	deleteTask := background.NewDeleteShareTask(share)
 	if err := background.EnqueueJob(deleteTask, share.Expires); err != nil {
 		return &HTTPError{err, "Can't start deleteShare task", 500}
 	}
-
+	// return
 	return nil
 }
 
 func UpdateShare(w http.ResponseWriter, r *http.Request) *HTTPError {
-	// auth
-	if ok, err := CheckBearerAuth(r); err != nil || ok == false {
-		return &HTTPError{err, "Unauthorized", 401}
-	}
 	// parse url
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
+	}
+	// auth
+	if ok, err := CheckBearerAuth(r); err != nil || ok == false {
+		return &HTTPError{err, "Unauthorized", 401}
 	}
 	//  get database
 	db, err := m.GetDatabase()
@@ -458,11 +458,7 @@ func UpdateShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func DeleteAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
-	db, err := m.GetDatabase()
-	if err != nil {
-		return &HTTPError{err, "Can't connect to database", 500}
-	}
-
+	// parse url
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -472,7 +468,12 @@ func DeleteAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
+	// get database
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+	// get attachment
 	var att m.Attachment
 	err = db.Where("id = ?", attID.String()).First(&att).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -481,25 +482,15 @@ func DeleteAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-
+	// check if attachment belongs to share
 	if att.ShareID != shareID {
 		return &HTTPError{errors.New("share doesent match attachment"), "share doesent match attachment", 404}
 	}
-
-	var share m.Share
-	err = db.Where("id = ?", att.ShareID.String()).First(&share).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &HTTPError{err, "Record not found", 404}
-	}
-	if err != nil {
-		return &HTTPError{err, "Can't fetch data", 500}
-	}
-
 	// delete attachment
 	err = db.Delete(&att).Error
 	if err != nil {
 		return &HTTPError{err, "can't delete attachment", 500}
 	}
-
+	// finish
 	return nil
 }
