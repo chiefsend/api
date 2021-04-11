@@ -9,24 +9,23 @@ import (
 	"strings"
 )
 
-func checkBearerAuth(r *http.Request) (bool, error) {
+func CheckBearerAuth(r *http.Request) (bool, error) {
 	auth := r.Header.Get("Authorization")
 	if auth == "" {
-		return false, errors.New("invalid Authorization Header")
+		return false, nil
 	}
 	const prefix = "Bearer "
 	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
 		return false, errors.New("invalid Authorization Header")
 	}
-	c, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+	token, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
 	if err != nil {
-		return false, errors.New("invalid Authorization Header")
+		return false, err
 	}
-	tok := string(c)
-	return tok == os.Getenv("ADMIN_KEY"), nil
+	return string(token) == os.Getenv("ADMIN_KEY"), nil
 }
 
-func checkBasicAuth(r *http.Request, share models.Share) (bool, error) {
+func CheckBasicAuth(r *http.Request, share models.Share) (bool, error) {
 	if share.Password != "" {
 		sid, pass, _ := r.BasicAuth()
 		if sid != share.ID.String() {
