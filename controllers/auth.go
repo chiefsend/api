@@ -15,8 +15,11 @@ func CheckBearerAuth(r *http.Request) (bool, error) {
 		return false, nil
 	}
 	const prefix = "Bearer "
+	if !strings.HasPrefix(auth, prefix) {
+		return false, nil
+	}
 	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
-		return false, errors.New("invalid Authorization Header")
+		return false, errors.New("Invalid Authorization Header")
 	}
 	token, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
 	if err != nil {
