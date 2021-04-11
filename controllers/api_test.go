@@ -170,6 +170,24 @@ func TestGetShare(t *testing.T) {
 		res, _ := http.Get( fmt.Sprintf("%s/share/%s", url, shares[2].ID.String()))
 		assert.Equal(t, http.StatusForbidden, res.StatusCode)
 	})
+
+	t.Run("with admin key", func(t *testing.T) {
+		// reqeust
+		sh := shares[0]
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), nil)
+		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		res, _ := http.DefaultClient.Do(req)
+		// parse
+		body, _ := ioutil.ReadAll(res.Body)
+		var actual models.Share
+		var expected models.Share
+		_ = json.Unmarshal(body, &actual)
+		ex, _ := json.Marshal(shares[0])
+		_ = json.Unmarshal(ex, &expected)
+		// assert
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Equal(t, expected, actual)
+	})
 }
 
 func TestDownloadFile(t *testing.T) {

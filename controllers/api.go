@@ -45,7 +45,7 @@ func AllShares(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't connect to database", 500}
 	}
-	// see if (optional) admin key is provided to also return temporary shares
+	// see if (optional) admin key is provided to also return temporary and non-public shares
 	admin, err := CheckBearerAuth(r)
 	if err != nil {
 		return &HTTPError{err, "can't check authorization header", 500}
@@ -60,22 +60,23 @@ func AllShares(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
 	}
-	// send shares
+	// return shares
 	return sendJSON(w, shares)
 }
 
 func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	// parse url
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		return &HTTPError{err, "invalid URL param", 400}
 	}
-
+	// get database
 	db, err := m.GetDatabase()
 	if err != nil {
 		return &HTTPError{err, "Can't connect to database", 500}
 	}
-
+	// get share
 	var share m.Share
 	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -87,12 +88,18 @@ func GetShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if share.IsTemporary == true {
 		return &HTTPError{errors.New("share is not finalized"), "Share is not finalized", 403}
 	}
-
-	// auth
-	if basic, err := CheckBasicAuth(r, share); err != nil || basic == false {
-		return &HTTPError{err, "Unauthorized", 401}
+	// see if (optional) admin key is provided to allow getting share anyway
+	admin, err := CheckBearerAuth(r)
+	if err != nil {
+		return &HTTPError{err, "can't check authorization header", 500}
 	}
-
+	// auth
+	if !admin {
+		if basic, err := CheckBasicAuth(r, share); err != nil || basic == false {
+			return &HTTPError{err, "Unauthorized", 401}
+		}
+	}
+	// return share
 	return sendJSON(w, share)
 }
 
