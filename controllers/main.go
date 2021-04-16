@@ -3,7 +3,6 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/chiefsend/api/models"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"log"
@@ -11,10 +10,7 @@ import (
 	"os"
 )
 
-func ConfigureRoutes() {
-	router := mux.NewRouter()
-	handler := cors.Default().Handler(router)
-
+func configureRoutes(router *mux.Router) {
 	router.Handle("/shares", EndpointREST(AllShares)).Methods("GET")
 	router.Handle("/shares", EndpointREST(OpenShare)).Methods("POST")
 
@@ -30,16 +26,18 @@ func ConfigureRoutes() {
 
 	router.Handle("/share/{id}/zip", EndpointREST(DownloadZip)).Methods("GET")
 
+	router.Handle("/shares/stats", EndpointREST(Stats)).Methods("GET")
+	router.Handle("/share/{id}/stats", EndpointREST(ShareStats)).Methods("GET")
+}
+
+func StartServer() {
+	router := mux.NewRouter()
+	handler := cors.AllowAll().Handler(router)
+	configureRoutes(router)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler))
 }
 
 func sendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
-	switch v := res.(type) {
-	case models.Share:
-		v.Password = ""
-		v.IsTemporary = false
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(res)
 	if err != nil {

@@ -37,5 +37,5 @@ func main() {
 	// start the server(s)
 	fmt.Println("Lets go!")
 	go background.StartBackgroundWorkers()
-	controllers.ConfigureRoutes()
+	controllers.StartServer()
 }
