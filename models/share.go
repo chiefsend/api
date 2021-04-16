@@ -7,22 +7,23 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	//"gopkg.in/guregu/null.v4" TODO
 )
 
 // Share has many Attachments, ShareID is the foreign key
 type Share struct {
 	ID        uuid.UUID `json:"id"  gorm:"primary_key"`
-	CreatedAt time.Time `json:"-"`
-	UpdatedAt time.Time `json:"-"`
+	//CreatedAt time.Time `json:"-"`
+	//UpdatedAt time.Time `json:"-"`
 
 	Name          string     `json:"name,omitempty"`
 	Expires       *time.Time `json:"expires,omitempty"`
 	DownloadLimit int        `json:"download_limit,omitempty"`
 	IsPublic      bool       `json:"is_public"  gorm:"not null; default:false; index"`
-	Password      string     `json:"password,omitempty"  gorm:"->:false;<-"` // createonly
+	Password      string     `json:"-"`
 	Emails        []string   `json:"emails,omitempty" gorm:"-"`
 	EMailsDB      string     `json:"-"`
-	IsTemporary   bool       `json:"is_temporary,omitempty" gorm:"not null;->:false;<-"` // createonly
+	IsTemporary   bool       `json:"is_temporary,omitempty"`
 
 	Attachments []Attachment `json:"files,omitempty"  gorm:"constraint:OnDelete:CASCADE"`
 }

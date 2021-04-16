@@ -39,9 +39,7 @@ func TestCreateShare(t *testing.T) {
 	var actual Share
 	db.Where("id=?", "1e21e633-7936-4dd5-9de5-43ed1c413d8a").First(&actual)
 	// assertions
-	assert.Empty(t, actual.Password)
-	assert.Empty(t, actual.IsTemporary)
-	assert.Equal(t, expected.ID, actual.ID)
+	assert.Equal(t, expected, actual)
 }
 
 func TestReadShare(t *testing.T) {

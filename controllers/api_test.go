@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/chiefsend/api/background"
-	"github.com/chiefsend/api/models"
+	m "github.com/chiefsend/api/models"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -23,54 +23,33 @@ import (
 	"testing"
 )
 
-var shares = []models.Share{
-	{
-		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
-		Name:          "TestFinalPrivate",
-		DownloadLimit: 100,
-		IsPublic:      false,
-		IsTemporary:   false,
-		Password:      "test123",
-		Emails:        []string{""},
-		Attachments: []models.Attachment{
-			{
-				ID:       uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
-				Filename: "kekw.txt",
-				Filesize: 123456,
-				ShareID:  uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
-			},
-		},
-	},
-	{
-		ID:          uuid.MustParse("f43b0e48-13cc-4c6c-8a23-3a18a670effd"),
-		Name:        "TestFinalPublic",
-		IsPublic:    true,
-		IsTemporary: false,
-		Emails:      []string{""},
-	},
-	{
-		ID:            uuid.MustParse("a558aca3-fb40-400b-8dc6-ae49c705c791"),
-		Name:          "TestTemporary",
-		DownloadLimit: 300,
-		IsPublic:      true,
-		IsTemporary:   true,
-		Emails:        []string{""},
-	},
+// Parse and Reparse Share in JSON to simulate transmission
+func parseShare(sh m.Share) m.Share {
+	body, err := json.Marshal(sh)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(body))
+	var e m.Share
+	if err := json.Unmarshal(body, &e); err != nil {
+		log.Fatal(err)
+	}
+	return e
 }
 
 var url string
 var db *gorm.DB
 
-func TestMain(m *testing.M) {
+func TestMain(mt *testing.M) {
 	_ = os.Setenv("ADMIN_KEY", "testkey123")
 
-	dab, err := models.GetDatabase()
+	dab, err := m.GetDatabase()
 	if err != nil {
 		log.Fatal("database brok")
 	}
 	db = dab
-	_ = db.AutoMigrate(&models.Share{})
-	_ = db.AutoMigrate(&models.Attachment{})
+	_ = db.AutoMigrate(&m.Share{})
+	_ = db.AutoMigrate(&m.Attachment{})
 
 	router := mux.NewRouter()
 	ts := httptest.NewServer(router)
@@ -78,68 +57,87 @@ func TestMain(m *testing.M) {
 	configureRoutes(router)
 	url = ts.URL
 
-	os.Exit(m.Run())
+	os.Exit(mt.Run())
 }
 
 ////////////////////////////////////////
 ////////////// TEST CASES //////////////
 ////////////////////////////////////////
 func TestAllShares(t *testing.T) {
+	shares := []m.Share{
+		{
+			ID:       uuid.MustParse("f43b0e48-13cc-4c6c-8a23-3a18a670effd"),
+			IsPublic: true,
+		},
+		{
+			ID:       uuid.MustParse("a558aca3-fb40-400b-8dc6-ae49c705c791"),
+			IsPublic: false,
+		},
+	}
+	db.Create(&shares[0])
 	db.Create(&shares[1])
-	db.Create(&shares[2])
+	defer db.Delete(&shares[0])
 	defer db.Delete(&shares[1])
-	defer db.Delete(&shares[2])
 
 	t.Run("happy path", func(t *testing.T) {
 		// request
 		res, _ := http.Get(url + "/shares")
 		// parse
 		body, _ := ioutil.ReadAll(res.Body)
-		var actual []models.Share
-		var expected = []models.Share{shares[1]}
+		var actual []m.Share
+		var expected = []m.Share{parseShare(shares[0])}
 		_ = json.Unmarshal(body, &actual)
 		// assertions
 		assert.Equal(t, http.StatusOK, res.StatusCode)
-		assert.Len(t, actual, 1)
+		assert.Len(t, actual, len(expected))
 		assert.Equal(t, expected, actual)
 	})
 
 	t.Run("with admin key", func(t *testing.T) {
 		// do request
 		req, _ := http.NewRequest("GET", fmt.Sprint(url, "/shares"), nil)
-		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
 		res, _ := http.DefaultClient.Do(req)
 		// parse
 		body, _ := ioutil.ReadAll(res.Body)
-		var actual []models.Share
-		var expected = []models.Share{shares[1], shares[2]}
+		var actual []m.Share
+		var expected = []m.Share{parseShare(shares[0]), parseShare(shares[1])}
 		_ = json.Unmarshal(body, &actual)
 		// assertions
 		assert.Equal(t, http.StatusOK, res.StatusCode)
-		assert.Len(t, actual, 2)
+		assert.Len(t, actual, len(expected))
 		assert.Equal(t, expected, actual)
 	})
 }
 
 func TestGetShare(t *testing.T) {
+	shares := []m.Share{
+		{
+			ID:          uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+			IsTemporary: false,
+			Password:    "test123",
+		},
+		{
+			ID:          uuid.MustParse("a558aca3-fb40-400b-8dc6-ae49c705c791"),
+			IsTemporary: true,
+		},
+	}
 	db.Create(&shares[0])
+	db.Create(&shares[1])
 	defer db.Delete(&shares[0])
-	db.Create(&shares[2])
-	defer db.Delete(&shares[2])
+	defer db.Delete(&shares[1])
 
 	t.Run("happy path", func(t *testing.T) {
-		// reqeust
+		// request
 		sh := shares[0]
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), nil)
 		req.SetBasicAuth(sh.ID.String(), sh.Password)
 		res, _ := http.DefaultClient.Do(req)
 		// parse
 		body, _ := ioutil.ReadAll(res.Body)
-		var actual models.Share
-		var expected models.Share
+		var actual m.Share
 		_ = json.Unmarshal(body, &actual)
-		ex, _ := json.Marshal(shares[0])
-		_ = json.Unmarshal(ex, &expected)
+		var expected = parseShare(shares[0])
 		// assert
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 		assert.Equal(t, expected, actual)
@@ -158,23 +156,21 @@ func TestGetShare(t *testing.T) {
 	})
 
 	t.Run("not ready", func(t *testing.T) {
-		res, _ := http.Get( fmt.Sprintf("%s/share/%s", url, shares[2].ID.String()))
+		res, _ := http.Get(fmt.Sprintf("%s/share/%s", url, shares[1].ID.String()))
 		assert.Equal(t, http.StatusForbidden, res.StatusCode)
 	})
 
 	t.Run("with admin key", func(t *testing.T) {
-		// reqeust
+		// request
 		sh := shares[0]
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), nil)
-		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
 		res, _ := http.DefaultClient.Do(req)
 		// parse
 		body, _ := ioutil.ReadAll(res.Body)
-		var actual models.Share
-		var expected models.Share
+		var actual m.Share
 		_ = json.Unmarshal(body, &actual)
-		ex, _ := json.Marshal(shares[0])
-		_ = json.Unmarshal(ex, &expected)
+		var expected = parseShare(shares[0])
 		// assert
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 		assert.Equal(t, expected, actual)
@@ -182,7 +178,22 @@ func TestGetShare(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
-	sh := shares[0]
+	sh := m.Share{
+		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+		Name:          "TestFinalPrivate",
+		DownloadLimit: 100,
+		IsPublic:      false,
+		IsTemporary:   false,
+		Password:      "test123",
+		Attachments: []m.Attachment{
+			{
+				ID:       uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
+				Filename: "kekw.txt",
+				Filesize: 123456,
+				ShareID:  uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+			},
+		},
+	}
 	db.Create(&sh)
 	defer db.Delete(&sh)
 	if err := ioutil.WriteFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String(), sh.Attachments[0].ID.String()), []byte("KEKW KEKW KEKW"), os.ModePerm); err == nil {
@@ -216,7 +227,7 @@ func TestDownloadFile(t *testing.T) {
 	t.Run("with admin key", func(t *testing.T) {
 		// request
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", url, sh.ID.String(), sh.Attachments[0].ID.String()), nil)
-		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
 		res, _ := http.DefaultClient.Do(req)
 		// parse
 		body, _ := ioutil.ReadAll(res.Body)
@@ -231,13 +242,13 @@ func TestDownloadFile(t *testing.T) {
 func TestOpenShare(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		// request
-		var newShare = models.Share{
+		var newShare = m.Share{
 			ID:            uuid.MustParse("e5134044-2704-4864-85be-318fb158009f"),
 			Name:          "TestOpenShare",
 			Expires:       nil,
 			DownloadLimit: 69,
 			IsPublic:      false,
-			Attachments: []models.Attachment{
+			Attachments: []m.Attachment{
 				{
 					ID:       uuid.MustParse("2b524827-9c3c-47e0-9277-8b51fd45b4bd"),
 					Filename: "hallo.txt",
@@ -251,7 +262,7 @@ func TestOpenShare(t *testing.T) {
 		res, _ := http.DefaultClient.Do(req)
 		// parse
 		body, _ := ioutil.ReadAll(res.Body)
-		var actual models.Share
+		var actual m.Share
 		_ = json.Unmarshal(body, &actual)
 		// assertions
 		assert.Equal(t, http.StatusOK, res.StatusCode)
@@ -269,8 +280,12 @@ func TestOpenShare(t *testing.T) {
 }
 
 func TestCloseShare(t *testing.T) {
-	sh := shares[2]
+	sh := m.Share{
+		ID:          uuid.MustParse("a558aca3-fb40-400b-8dc6-ae49c705c791"),
+		IsTemporary: true,
+	}
 	db.Create(&sh)
+	defer db.Delete(&sh)
 
 	t.Run("happy path", func(t *testing.T) {
 		// request
@@ -296,7 +311,10 @@ func TestCloseShare(t *testing.T) {
 }
 
 func TestUploadAttachment(t *testing.T) {
-	sh := shares[2]
+	sh := m.Share{
+		ID:          uuid.MustParse("a558aca3-fb40-400b-8dc6-ae49c705c791"),
+		IsTemporary: true,
+	}
 	db.Create(&sh)
 	defer db.Delete(&sh)
 
@@ -313,7 +331,7 @@ func TestUploadAttachment(t *testing.T) {
 		res, _ := http.DefaultClient.Do(req)
 		// parse
 		body, _ := ioutil.ReadAll(res.Body)
-		var actual models.Attachment
+		var actual m.Attachment
 		_ = json.Unmarshal(body, &actual)
 		// assertions
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
@@ -328,24 +346,36 @@ func TestUploadAttachment(t *testing.T) {
 }
 
 func TestDeleteShare(t *testing.T) {
-	sh := shares[0]
+	sh := m.Share{
+		ID: uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+	}
 	db.Create(&sh)
 	defer db.Delete(&sh)
 	go background.StartBackgroundWorkers()
 	defer background.StopBackgroundWorkers()
-	
+
 	t.Run("happy path", func(t *testing.T) {
 		// request
 		req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), nil)
-		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
 		res, _ := http.DefaultClient.Do(req)
 		// assertions
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 	})
+
+	t.Run("unauthorized", func(t *testing.T) {
+		// request
+		req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), nil)
+		res, _ := http.DefaultClient.Do(req)
+		// assertions
+		assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	})
 }
 
 func TestUpdateShare(t *testing.T) {
-	var sh = shares[1]
+	var sh = m.Share{
+		ID: uuid.MustParse("f43b0e48-13cc-4c6c-8a23-3a18a670effd"),
+	}
 	db.Create(&sh)
 	defer db.Delete(&sh)
 
@@ -354,10 +384,10 @@ func TestUpdateShare(t *testing.T) {
 		sh.Name = "UpdatedName"
 		b, _ := json.Marshal(sh)
 		req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), bytes.NewReader(b))
-		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
 		res, _ := http.DefaultClient.Do(req)
 		// parse
-		var actual models.Share
+		var actual m.Share
 		db.Where("ID = ?", sh.ID.String()).First(&actual)
 		// assertions
 		assert.Equal(t, http.StatusOK, res.StatusCode)
@@ -366,7 +396,22 @@ func TestUpdateShare(t *testing.T) {
 }
 
 func TestDeleteAttachment(t *testing.T) {
-	sh := shares[0]
+	sh := m.Share{
+		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+		Name:          "TestFinalPrivate",
+		DownloadLimit: 100,
+		IsPublic:      false,
+		IsTemporary:   false,
+		Password:      "test123",
+		Attachments: []m.Attachment{
+			{
+				ID:       uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
+				Filename: "kekw.txt",
+				Filesize: 123456,
+				ShareID:  uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+			},
+		},
+	}
 	db.Create(&sh)
 	defer db.Delete(&sh)
 	path := filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String(), sh.Attachments[0].ID.String())
@@ -378,7 +423,7 @@ func TestDeleteAttachment(t *testing.T) {
 		assert.FileExists(t, path)
 		// request
 		req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/share/%s/attachment/%s", url, sh.ID.String(), sh.Attachments[0].ID.String()), nil)
-		req.Header.Set("Authorization", "Bearer " + base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
 		res, _ := http.DefaultClient.Do(req)
 		// assertions
 		assert.Equal(t, http.StatusOK, res.StatusCode)
