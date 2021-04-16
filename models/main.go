@@ -12,6 +12,7 @@ import (
 
 var db *gorm.DB = nil
 
+// returns the database connection. Creates one if doesn't exist.
 func GetDatabase() (*gorm.DB, error) {
 	if db != nil {
 		return db, nil

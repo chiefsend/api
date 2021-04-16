@@ -8,13 +8,13 @@ import (
 )
 
 type Attachment struct {
-	ID          uuid.UUID `json:"id"  gorm:"primary_key"`
-	Filename    string    `json:"filename"  gorm:"not null"`
-	Filesize    int64     `json:"filesize"  gorm:"not null; default:0"`
+	ID       uuid.UUID `json:"id"  gorm:"primary_key"`
+
+	Filename string    `json:"filename"  gorm:"not null"`
+	Filesize int64     `json:"filesize"  gorm:"not null; default:0"`
 
 	ShareID uuid.UUID `json:"-"  gorm:"not null"`
 }
-
 
 func (att *Attachment) BeforeCreate(tx *gorm.DB) error {
 	if att.ID.String() == "00000000-0000-0000-0000-000000000000" {
@@ -29,7 +29,7 @@ func (att *Attachment) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (att *Attachment) BeforeDelete(tx *gorm.DB) error {
-	if err:= os.Remove(filepath.Join(os.Getenv("MEDIA_DIR"), "data", att.ShareID.String(), att.ID.String())); err != nil {
+	if err := os.Remove(filepath.Join(os.Getenv("MEDIA_DIR"), "data", att.ShareID.String(), att.ID.String())); err != nil {
 		tx.Rollback()
 		return err
 	}

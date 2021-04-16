@@ -28,11 +28,16 @@ type EndpointREST func(http.ResponseWriter, *http.Request) *HTTPError
 
 func (fn EndpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil { // e is *HTTPError, not os.Error.
-		log.Println(fmt.Sprintf("%d: %s - %s", (*e).Code, (*e).Error.Error(), (*e).Message))
 		if e.Code == 401 {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Please enter the password"`)
 		}
-		http.Error(w, fmt.Sprintf("%s - %s", (*e).Message, (*e).Error.Error()), (*e).Code)
+		if e.Error != nil {
+			log.Println(fmt.Sprintf("%d: %s - %s", e.Code, e.Error.Error(), e.Message))
+			http.Error(w, fmt.Sprintf("%s - %s", e.Message, e.Error.Error()), e.Code)
+		} else {
+			log.Println(fmt.Sprintf("%d: %s", e.Code, e.Message))
+			http.Error(w, e.Message, e.Code)
+		}
 	}
 }
 
@@ -221,8 +226,7 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Can't move directory", 500}
 	}
 	// set stuff permanent
-	share.IsTemporary = false
-	if err := db.Save(&share).Error; err != nil {
+	if err := db.Model(&share).Update("is_temporary", false).Error; err != nil {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
 	// run some background jobs
@@ -388,6 +392,10 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 ///////////// Admin Routes ///////////////
 //////////////////////////////////////////
 func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
+	// admin auth
+	if auth, err := CheckBearerAuth(r); err != nil || auth == false {
+		return &HTTPError{err, "Authentication Failed", 401}
+	}
 	// parse url
 	vars := mux.Vars(r)
 	shareID, err := uuid.Parse(vars["id"])
@@ -407,10 +415,6 @@ func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
-	}
-	// admin auth
-	if auth, err := CheckBearerAuth(r); err != nil || auth == false {
-		return &HTTPError{err, "Authentication Failed", 401}
 	}
 	// delete
 	deleteTask := background.NewDeleteShareTask(share)
