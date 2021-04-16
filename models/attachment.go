@@ -8,10 +8,10 @@ import (
 )
 
 type Attachment struct {
-	ID       uuid.UUID `json:"id"  gorm:"primary_key"`
+	ID uuid.UUID `json:"id"  gorm:"primary_key"`
 
-	Filename string    `json:"filename"  gorm:"not null"`
-	Filesize int64     `json:"filesize"  gorm:"not null; default:0"`
+	Filename string `json:"filename"  gorm:"not null"`
+	Filesize int64  `json:"filesize"  gorm:"not null; default:0"`
 
 	ShareID uuid.UUID `json:"-"  gorm:"not null"`
 }

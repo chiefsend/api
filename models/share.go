@@ -11,22 +11,26 @@ import (
 
 // Share has many Attachments, ShareID is the foreign key
 type Share struct {
-	ID            uuid.UUID  `json:"id"  gorm:"primary_key"`
+	ID        uuid.UUID `json:"id"  gorm:"primary_key"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+
 	Name          string     `json:"name,omitempty"`
 	Expires       *time.Time `json:"expires,omitempty"`
 	DownloadLimit int        `json:"download_limit,omitempty"`
 	IsPublic      bool       `json:"is_public"  gorm:"not null; default:false; index"`
-	Password      string     `json:"password,omitempty"`
+	Password      string     `json:"password,omitempty"  gorm:"->:false;<-"` // createonly
 	Emails        []string   `json:"emails,omitempty" gorm:"-"`
 	EMailsDB      string     `json:"-"`
-	IsTemporary   bool       `json:"is_temporary,omitempty" gorm:"not null"`
+	IsTemporary   bool       `json:"is_temporary,omitempty" gorm:"not null;->:false;<-"` // createonly
 
 	Attachments []Attachment `json:"files,omitempty"  gorm:"constraint:OnDelete:CASCADE"`
 }
 
-
 func (sh *Share) AfterFind(tx *gorm.DB) error {
-	sh.Emails = strings.Split(sh.EMailsDB, ";")
+	if sh.EMailsDB != "" {
+		sh.Emails = strings.Split(sh.EMailsDB, ";")
+	}
 	return nil
 }
 
@@ -63,7 +67,7 @@ func (sh *Share) BeforeDelete(tx *gorm.DB) error {
 			tx.Rollback()
 			return err
 		}
-	}else {
+	} else {
 		if err := os.RemoveAll(filepath.Join(os.Getenv("MEDIA_DIR"), "temp", sh.ID.String())); err != nil {
 			tx.Rollback()
 			return err
