@@ -504,3 +504,25 @@ func DeleteAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	// finish
 	return nil
 }
+
+/////////////////////////////////////////////////////
+//////////////////// Misc. Routes ///////////////////
+/////////////////////////////////////////////////////
+func Stats(w http.ResponseWriter, r *http.Request) *HTTPError {
+	type Stat struct {
+		NumberOfShares int `json:"number_of_shares"`
+	}
+	var stat Stat
+	stat.NumberOfShares = 5
+
+	return sendJSON(w, stat)
+}
+
+func ShareStats(w http.ResponseWriter, r *http.Request) *HTTPError {
+	type Stat struct {
+		Heat []int `json:"heat"`
+	}
+	return sendJSON(w, Stat{
+		Heat: []int{1, 2, 3, 4},
+	})
+}
