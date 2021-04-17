@@ -8,6 +8,8 @@ import (
 	m "github.com/chiefsend/api/models"
 	"github.com/joho/godotenv"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -33,6 +35,13 @@ func main() {
 				log.Fatal("Cannot migrate database")
 			}
 		}
+	}
+	// check if file structure is there
+	if err := os.MkdirAll(filepath.Join(os.Getenv("MEDIA_DIR"), "temp"), os.ModePerm); err != nil {
+		log.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(os.Getenv("MEDIA_DIR"), "data"), os.ModePerm); err != nil {
+		log.Fatal(err)
 	}
 	// start the server(s)
 	fmt.Println("Lets go!")

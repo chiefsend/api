@@ -219,7 +219,7 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if share.IsTemporary == false { // already closed
 		return nil
 	}
-	// move files to permanent location // TODO check if media/temp and media/data exists!
+	// move files to permanent location
 	oldPath := filepath.Join(os.Getenv("MEDIA_DIR"), "temp", shareID.String())
 	newPath := filepath.Join(os.Getenv("MEDIA_DIR"), "data", shareID.String())
 	err = os.Rename(oldPath, newPath)
