@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"os"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 
 // Share has many Attachments, ShareID is the foreign key
 type Share struct {
-	ID        uuid.UUID `json:"id"  gorm:"primary_key"`
+	ID uuid.UUID `json:"id"  gorm:"primary_key"`
 	//CreatedAt time.Time `json:"-"`
 	//UpdatedAt time.Time `json:"-"`
 
@@ -59,6 +60,13 @@ func (sh *Share) BeforeCreate(tx *gorm.DB) error {
 	}
 	//convert email adresses
 	sh.EMailsDB = strings.Join(sh.Emails, ";")
+	// hash password
+	if hash, err := bcrypt.GenerateFromPassword([]byte(sh.Password), bcrypt.DefaultCost); err != nil {
+		return err
+	} else {
+		sh.Password = string(hash)
+	}
+	// return
 	return nil
 }
 

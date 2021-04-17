@@ -131,7 +131,7 @@ func TestGetShare(t *testing.T) {
 		// request
 		sh := shares[0]
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), nil)
-		req.SetBasicAuth(sh.ID.String(), sh.Password)
+		req.SetBasicAuth(sh.ID.String(), "test123")
 		res, _ := http.DefaultClient.Do(req)
 		// parse
 		body, _ := ioutil.ReadAll(res.Body)
@@ -201,13 +201,15 @@ func TestDownloadFile(t *testing.T) {
 	}
 
 	t.Run("happy path", func(t *testing.T) {
+		// request
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", url, sh.ID.String(), sh.Attachments[0].ID.String()), nil)
-		req.SetBasicAuth(sh.ID.String(), sh.Password)
-
+		req.SetBasicAuth(sh.ID.String(), "test123")
 		res, _ := http.DefaultClient.Do(req)
+		// parse
 		body, _ := ioutil.ReadAll(res.Body)
-		assert.FileExists(t, filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String(), sh.Attachments[0].ID.String()))
 		expected, _ := ioutil.ReadFile(filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String(), sh.Attachments[0].ID.String()))
+		// assertions
+		assert.FileExists(t, filepath.Join(os.Getenv("MEDIA_DIR"), "data", sh.ID.String(), sh.Attachments[0].ID.String()))
 		assert.EqualValues(t, expected, body)
 		assert.EqualValues(t, http.StatusOK, res.StatusCode)
 	})

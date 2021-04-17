@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/base64"
+	m "github.com/chiefsend/api/models"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
@@ -27,5 +28,48 @@ func TestCheckBearerAuth(t *testing.T) {
 }
 
 func TestCheckBasicAuth(t *testing.T) {
+	sh := m.Share{
+		Password: "password123",
+	}
+	db.Create(&sh)
+	defer db.Delete(&sh)
 
+	t.Run("happy path", func(t *testing.T) {
+		// request
+		req, _ := http.NewRequest("GET", "/random", nil)
+		req.SetBasicAuth(sh.ID.String(), "password123")
+		ok, err := CheckBasicAuth(req, sh)
+		// assertions
+		assert.Nil(t, err)
+		assert.True(t, ok)
+	})
+
+	t.Run("without header", func(t *testing.T) {
+		// request
+		req, _ := http.NewRequest("GET", "/random", nil)
+		ok, err := CheckBasicAuth(req, sh)
+		// assertions
+		assert.NotNil(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("wrong username/shareID", func(t *testing.T) {
+		// request
+		req, _ := http.NewRequest("GET", "/random", nil)
+		req.SetBasicAuth("trash", sh.Password)
+		ok, err := CheckBasicAuth(req, sh)
+		// assertions
+		assert.Nil(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("wrong password", func(t *testing.T) {
+		// request
+		req, _ := http.NewRequest("GET", "/random", nil)
+		req.SetBasicAuth(sh.ID.String(), "trash")
+		ok, err := CheckBasicAuth(req, sh)
+		// assertions
+		assert.Nil(t, err)
+		assert.False(t, ok)
+	})
 }
