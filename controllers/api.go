@@ -44,6 +44,7 @@ func (fn EndpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 /////////////////////////////////
 //////////// routes /////////////
 /////////////////////////////////
+
 func AllShares(w http.ResponseWriter, r *http.Request) *HTTPError {
 	// get database
 	db, err := m.GetDatabase()
@@ -135,7 +136,7 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	// check if attachments belongs to share
 	if att.ShareID != shareID {
-		return &HTTPError{errors.New("share doesent match attachment"), "share doesent match attachment", 404}
+		return &HTTPError{errors.New("share doesn't match attachment"), "share doesn't match attachment", 404}
 	}
 	// see if (optional) admin key is provided to allow getting temporary shares
 	admin, err := CheckBearerAuth(r)
@@ -391,6 +392,7 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 //////////////////////////////////////////
 ///////////// Admin Routes ///////////////
 //////////////////////////////////////////
+
 func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	// admin auth
 	if auth, err := CheckBearerAuth(r); err != nil || auth == false {
@@ -494,7 +496,7 @@ func DeleteAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	// check if attachment belongs to share
 	if att.ShareID != shareID {
-		return &HTTPError{errors.New("share doesent match attachment"), "share doesent match attachment", 404}
+		return &HTTPError{errors.New("share doesn't match attachment"), "share doesn't match attachment", 404}
 	}
 	// delete attachment
 	err = db.Delete(&att).Error
@@ -508,6 +510,7 @@ func DeleteAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 /////////////////////////////////////////////////////
 //////////////////// Misc. Routes ///////////////////
 /////////////////////////////////////////////////////
+
 func Stats(w http.ResponseWriter, r *http.Request) *HTTPError {
 	type Stat struct {
 		NumberOfShares int `json:"number_of_shares"`
