@@ -15,6 +15,7 @@ https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
 
 ## Environment Variables:
 - `PORT`: the port the api listens to (required, example: 6969).
+- `DATABASE_DIALECT`: the database dialect (supported: mysql | postgres | sqlite | mssql | clickhouse)
 - `DATABASE_URI`: the dsn string with all details for db connection (required)
 - `MEDIA_DIR`: the path where the files should be saved (required, absolute path)
 - `SENDGRID_API_KEY`: sendgrid api key (optional)
@@ -27,13 +28,15 @@ https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
 - `BACKGROUND_WORKERS`: number of background workers (optional, default: 5)
 - `ADMIN_KEY`: the admin key which is passed as a bearer token to authenticate delete and update operations (required)
 
-
 ## Supported Databases:
 Note: Create a database called "ChiefSend" beforehand
-
-- SQLite - example dsn: `file::memory:?cache=shared`
+- MySQL - example dsn: `user:pass@tcp(127.0.0.1:3306)/ChiefSend?charset=utf8mb4&parseTime=True&loc=Local`
 - PostgreSQL - example dsn: `host=localhost user=user password=password dbname=ChiefSend port=9920 sslmode=disable TimeZone=Asia/Shanghai`
-- SQL Server - example dsn: `sqlserver://user:password@localhost:1433?database=ChiefSend`
+- SQLite - example dsn: `file::memory:?cache=shared`
+- SQL Server - example dsn: `sqlserver://user:pass@localhost:9930?database=ChiefSend`
+- Clickhouse - example dsn: `tcp://localhost:9000?database=ChiefSend&username=user&password=pass&read_timeout=10&write_timeout=20`
+
+Other databases may work if you use the MySQL or PostgreSQL dialect.
 
 ## Building and deploying the API
 ```
