@@ -5,10 +5,10 @@ RESTful API for ChiefSend written in Go
 https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
 
 ## Application Architecture
-- **Redis** Is used for temporary storage of the background job queue (set it up yourself beforehand)
+- **Redis**: Is used for temporary storage of the background job queue (set it up yourself beforehand)
 - **Database**: Stores information about the shares (set it up yourself beforehand)
 - **SendGrid**: Automatically sends eMails with the shares (set it up yourself beforehand)
-- **Media Storage**: Is just a folder in a filesystem with the following structure:
+- **Media Storage**: Is just a folder in a filesystem
 - **API Server**: Takes and processes all the HTTP requests
 - **Background Job Worker**: Starts with the API Server and handles slow tasks, like sending mail or scheduled deleting of a share.
 - **Reverse Proxy (nginx)**: Takes care of exposing the api to the outside world
@@ -70,15 +70,7 @@ server {
     gzip on;
     gzip_types
         text/plain
-        text/css
-        text/js
-        text/xml
-        text/javascript
-        application/javascript
         application/json
-        application/xml
-        application/rss+xml
-        image/svg+xml;
 
     location /api/ {
         proxy_pass http://localhost:<PORT>/;
