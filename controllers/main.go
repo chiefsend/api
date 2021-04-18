@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/chiefsend/api/models"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -39,6 +40,18 @@ func StartServer() {
 }
 
 func sendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
+	// Secure outgoing data
+	switch v := res.(type) {
+	case models.Share:
+		v.Secure()
+		res = v
+	case []models.Share:
+		for i := range v {
+			v[i].Secure()
+		}
+		res = v
+	}
+	// Send it
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(res)
 	if err != nil {

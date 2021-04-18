@@ -21,12 +21,17 @@ type Share struct {
 	Expires       *time.Time `json:"expires,omitempty"`
 	DownloadLimit int        `json:"download_limit,omitempty"`
 	IsPublic      bool       `json:"is_public"  gorm:"not null; default:false; index"`
-	Password      string     `json:"-"`
+	Password      string     `json:"password,omitempty"`
 	Emails        []string   `json:"emails,omitempty" gorm:"-"`
 	EMailsDB      string     `json:"-"`
 	IsTemporary   bool       `json:"is_temporary,omitempty"`
 
 	Attachments []Attachment `json:"files,omitempty"  gorm:"constraint:OnDelete:CASCADE"`
+}
+
+
+func (sh *Share) Secure() {
+	sh.Password = ""
 }
 
 func (sh *Share) AfterFind(tx *gorm.DB) error {
@@ -58,7 +63,7 @@ func (sh *Share) BeforeCreate(tx *gorm.DB) error {
 			return nil
 		}
 	}
-	//convert email adresses
+	//convert email addresses
 	sh.EMailsDB = strings.Join(sh.Emails, ";")
 	// hash password
 	if hash, err := bcrypt.GenerateFromPassword([]byte(sh.Password), bcrypt.DefaultCost); err != nil {

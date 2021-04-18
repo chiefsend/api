@@ -25,6 +25,7 @@ import (
 
 // Parse and Reparse Share in JSON to simulate transmission
 func parseShare(sh m.Share) m.Share {
+	sh.Secure()
 	body, err := json.Marshal(sh)
 	if err != nil {
 		log.Fatal(err)
