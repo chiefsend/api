@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,10 +31,8 @@ func (fn EndpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Please enter the password"`)
 		}
 		if e.Error != nil {
-			log.Println(fmt.Sprintf("%d: %s - %s", e.Code, e.Error.Error(), e.Message))
 			http.Error(w, fmt.Sprintf("%s - %s", e.Message, e.Error.Error()), e.Code)
 		} else {
-			log.Println(fmt.Sprintf("%d: %s", e.Code, e.Message))
 			http.Error(w, e.Message, e.Code)
 		}
 	}

@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"log"
@@ -34,7 +35,7 @@ func StartServer() {
 	router := mux.NewRouter()
 	handler := cors.AllowAll().Handler(router)
 	configureRoutes(router)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handlers.LoggingHandler(os.Stdout, handler)))
 }
 
 func sendJSON(w http.ResponseWriter, res interface{}) *HTTPError {
