@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 	"io"
 	"io/ioutil"
@@ -116,7 +117,7 @@ func TestGetShare(t *testing.T) {
 		{
 			ID:          uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
 			IsTemporary: false,
-			Password:    "test123",
+			Password:    null.StringFrom("test123"),
 		},
 		{
 			ID:          uuid.MustParse("a558aca3-fb40-400b-8dc6-ae49c705c791"),
@@ -181,11 +182,9 @@ func TestGetShare(t *testing.T) {
 func TestDownloadFile(t *testing.T) {
 	sh := m.Share{
 		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
-		Name:          "TestFinalPrivate",
-		DownloadLimit: 100,
 		IsPublic:      false,
 		IsTemporary:   false,
-		Password:      "test123",
+		Password:    null.StringFrom("test123"),
 		Attachments: []m.Attachment{
 			{
 				ID:       uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),
@@ -247,9 +246,6 @@ func TestOpenShare(t *testing.T) {
 		// request
 		var newShare = m.Share{
 			ID:            uuid.MustParse("e5134044-2704-4864-85be-318fb158009f"),
-			Name:          "TestOpenShare",
-			Expires:       nil,
-			DownloadLimit: 69,
 			IsPublic:      false,
 			Attachments: []m.Attachment{
 				{
@@ -384,7 +380,7 @@ func TestUpdateShare(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
 		// request
-		sh.Name = "UpdatedName"
+		sh.Name.SetValid("UpdatedName")
 		b, _ := json.Marshal(sh)
 		req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/share/%s", url, sh.ID.String()), bytes.NewReader(b))
 		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(os.Getenv("ADMIN_KEY"))))
@@ -401,11 +397,9 @@ func TestUpdateShare(t *testing.T) {
 func TestDeleteAttachment(t *testing.T) {
 	sh := m.Share{
 		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
-		Name:          "TestFinalPrivate",
-		DownloadLimit: 100,
 		IsPublic:      false,
 		IsTemporary:   false,
-		Password:      "test123",
+		Password:      null.StringFrom("test123"),
 		Attachments: []m.Attachment{
 			{
 				ID:       uuid.MustParse("913134c0-894f-4c4d-b545-92ec373168b1"),

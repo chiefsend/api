@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"os"
@@ -14,6 +15,14 @@ type Attachment struct {
 	Filesize int64  `json:"filesize"  gorm:"not null; default:0"`
 
 	ShareID uuid.UUID `json:"-"  gorm:"not null"`
+}
+
+func (att Attachment) String() string {
+	indent, err := json.MarshalIndent(att, "", "    ")
+	if err != nil {
+		return "error printing attachment"
+	}
+	return string(indent)
 }
 
 func (att *Attachment) BeforeCreate(tx *gorm.DB) error {

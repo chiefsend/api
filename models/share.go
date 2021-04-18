@@ -1,14 +1,14 @@
 package models
 
 import (
+	"encoding/json"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-	//"gopkg.in/guregu/null.v4" TODO
 )
 
 // Share has many Attachments, ShareID is the foreign key
@@ -17,21 +17,30 @@ type Share struct {
 	//CreatedAt time.Time `json:"-"`
 	//UpdatedAt time.Time `json:"-"`
 
-	Name          string     `json:"name,omitempty"`
-	Expires       *time.Time `json:"expires,omitempty"`
-	DownloadLimit int        `json:"download_limit,omitempty"`
-	IsPublic      bool       `json:"is_public"  gorm:"not null; default:false; index"`
-	Password      string     `json:"password,omitempty"`
-	Emails        []string   `json:"emails,omitempty" gorm:"-"`
-	EMailsDB      string     `json:"-"`
-	IsTemporary   bool       `json:"is_temporary,omitempty"`
+	Name          null.String `json:"name,omitempty"`
+	Expires       null.Time   `json:"expires,omitempty"`
+	DownloadLimit null.Int    `json:"download_limit,omitempty"`
+	IsPublic      bool        `json:"is_public"  gorm:"not null; default:false; index"`
+	Password      null.String `json:"password,omitempty"`
+	Emails        []string    `json:"emails,omitempty" gorm:"-"`
+	EMailsDB      string      `json:"-"`
+	IsTemporary   bool        `json:"is_temporary,omitempty"`
 
 	Attachments []Attachment `json:"files,omitempty"  gorm:"constraint:OnDelete:CASCADE"`
 }
 
+func (sh Share) String() string {
+	indent, err := json.MarshalIndent(sh, "", "    ")
+	if err != nil {
+		return "error printing share"
+	}
+	return string(indent)
+}
 
 func (sh *Share) Secure() {
-	sh.Password = ""
+	if sh.Password.Valid {
+		sh.Password.SetValid("")
+	}
 }
 
 func (sh *Share) AfterFind(tx *gorm.DB) error {
@@ -66,10 +75,12 @@ func (sh *Share) BeforeCreate(tx *gorm.DB) error {
 	//convert email addresses
 	sh.EMailsDB = strings.Join(sh.Emails, ";")
 	// hash password
-	if hash, err := bcrypt.GenerateFromPassword([]byte(sh.Password), bcrypt.DefaultCost); err != nil {
-		return err
-	} else {
-		sh.Password = string(hash)
+	if sh.Password.Valid {
+		if hash, err := bcrypt.GenerateFromPassword([]byte(sh.Password.ValueOrZero()), bcrypt.DefaultCost); err != nil {
+			return err
+		} else {
+			sh.Password.SetValid(string(hash))
+		}
 	}
 	// return
 	return nil

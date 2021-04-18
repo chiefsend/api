@@ -32,7 +32,7 @@ func CheckBearerAuth(r *http.Request) (bool, error) {
 
 // CheckBasicAuth returns true if data in basic auth header can unlock the share. Returns error if no Auth header is provided
 func CheckBasicAuth(r *http.Request, share models.Share) (bool, error) {
-	if string(share.Password) != "" {
+	if share.Password.Valid {
 		sid, pass, ok := r.BasicAuth()
 		if !ok {
 			return false, errors.New("invalid auth header")
@@ -41,7 +41,7 @@ func CheckBasicAuth(r *http.Request, share models.Share) (bool, error) {
 			return false, nil
 		}
 
-		if err := bcrypt.CompareHashAndPassword([]byte(share.Password), []byte(pass)); err != nil {
+		if err := bcrypt.CompareHashAndPassword([]byte(share.Password.ValueOrZero()), []byte(pass)); err != nil {
 			return false, err
 		} else {
 			return true, nil

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	m "github.com/chiefsend/api/models"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/guregu/null.v4"
 	"net/http"
 	"os"
 	"testing"
@@ -29,7 +30,7 @@ func TestCheckBearerAuth(t *testing.T) {
 
 func TestCheckBasicAuth(t *testing.T) {
 	sh := m.Share{
-		Password: "test123",
+		Password:    null.StringFrom("test123"),
 	}
 	db.Create(&sh)
 	defer db.Delete(&sh)
@@ -56,7 +57,7 @@ func TestCheckBasicAuth(t *testing.T) {
 	t.Run("wrong username/shareID", func(t *testing.T) {
 		// request
 		req, _ := http.NewRequest("GET", "/random", nil)
-		req.SetBasicAuth("trash", sh.Password)
+		req.SetBasicAuth("trash", sh.Password.ValueOrZero())
 		ok, err := CheckBasicAuth(req, sh)
 		// assertions
 		assert.Nil(t, err)

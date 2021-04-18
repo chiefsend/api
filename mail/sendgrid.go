@@ -41,7 +41,6 @@ func SendMail(shareId string) error {
 	}
 	p.AddTos(receivers...)
 	p.SetDynamicTemplateData("id", sh.ID.String())
-	p.SetDynamicTemplateData("download_id", sh.DownloadLimit)
 	p.SetDynamicTemplateData("files", sh.Attachments)
 	m.AddPersonalizations(p)
 

@@ -13,11 +13,8 @@ import (
 
 var share = models.Share{
 	ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
-	Name:          "TestFinalPrivate",
-	DownloadLimit: 100,
 	IsPublic:      false,
 	IsTemporary:   false,
-	Password:      "test123",
 }
 
 var db *gorm.DB

@@ -234,9 +234,10 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 		return &HTTPError{err, "Can't start send eMail background task", 500}
 	}
 	// delete share
-	if share.Expires != nil {
+	if share.Expires.Valid {
 		deleteTask := background.NewDeleteShareTask(share)
-		if err := background.EnqueueJob(deleteTask, share.Expires); err != nil {
+		at := share.Expires.ValueOrZero()
+		if err := background.EnqueueJob(deleteTask, &at); err != nil {
 			return &HTTPError{err, "Can't start deleteShare task", 500}
 		}
 	}
@@ -417,7 +418,7 @@ func DeleteShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	// delete
 	deleteTask := background.NewDeleteShareTask(share)
-	if err := background.EnqueueJob(deleteTask, share.Expires); err != nil {
+	if err := background.EnqueueJob(deleteTask, nil); err != nil {
 		return &HTTPError{err, "Can't start deleteShare task", 500}
 	}
 	// return
