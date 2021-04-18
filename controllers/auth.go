@@ -3,7 +3,6 @@ package controllers
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"github.com/chiefsend/api/models"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
@@ -11,7 +10,7 @@ import (
 	"strings"
 )
 
-
+// CheckBearerAuth returns true if the ADMIN_KEY is provided as Bearer token, false otherwise (or no token is included)
 func CheckBearerAuth(r *http.Request) (bool, error) {
 	auth := r.Header.Get("Authorization")
 	if auth == "" {
@@ -22,7 +21,7 @@ func CheckBearerAuth(r *http.Request) (bool, error) {
 		return false, nil
 	}
 	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
-		return false, errors.New("Invalid Authorization Header")
+		return false, errors.New("invalid Authorization Header")
 	}
 	token, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
 	if err != nil {
@@ -31,31 +30,22 @@ func CheckBearerAuth(r *http.Request) (bool, error) {
 	return string(token) == os.Getenv("ADMIN_KEY"), nil
 }
 
-// return true if data in basic auth header can unlock the share. Returns error if no Auth header is provided
+// CheckBasicAuth returns true if data in basic auth header can unlock the share. Returns error if no Auth header is provided
 func CheckBasicAuth(r *http.Request, share models.Share) (bool, error) {
-	if share.Password != "" {
+	if string(share.Password) != "" {
 		sid, pass, ok := r.BasicAuth()
-		fmt.Println(sid, pass, ok)
 		if !ok {
 			return false, errors.New("invalid auth header")
 		}
 		if sid != share.ID.String() {
 			return false, nil
 		}
-		if !checkPasswordHash(pass, share.Password) {
-			return false, nil
+
+		if err := bcrypt.CompareHashAndPassword([]byte(share.Password), []byte(pass)); err != nil {
+			return false, err
+		} else {
+			return true, nil
 		}
 	}
-	return true, nil
-}
-
-
-// returns true if the password matches the hash
-func checkPasswordHash(password, hash string) bool {
-	fmt.Println(password, hash)
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))  // FIXME doesen't work
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	return err == nil
+	return true, nil // no password
 }

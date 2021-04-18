@@ -29,7 +29,7 @@ func TestCheckBearerAuth(t *testing.T) {
 
 func TestCheckBasicAuth(t *testing.T) {
 	sh := m.Share{
-		Password: "password123",
+		Password: "test123",
 	}
 	db.Create(&sh)
 	defer db.Delete(&sh)
@@ -37,7 +37,7 @@ func TestCheckBasicAuth(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		// request
 		req, _ := http.NewRequest("GET", "/random", nil)
-		req.SetBasicAuth(sh.ID.String(), "password123")
+		req.SetBasicAuth(sh.ID.String(), "test123")
 		ok, err := CheckBasicAuth(req, sh)
 		// assertions
 		assert.Nil(t, err)
@@ -69,7 +69,7 @@ func TestCheckBasicAuth(t *testing.T) {
 		req.SetBasicAuth(sh.ID.String(), "trash")
 		ok, err := CheckBasicAuth(req, sh)
 		// assertions
-		assert.Nil(t, err)
+		assert.NotNil(t, err)
 		assert.False(t, ok)
 	})
 }
