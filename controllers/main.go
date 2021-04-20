@@ -12,6 +12,7 @@ import (
 	"os"
 )
 
+// ConfigureRoutes sets up the mux router
 func configureRoutes(router *mux.Router) {
 	router.Handle("/shares", EndpointREST(AllShares)).Methods("GET")
 	router.Handle("/shares", EndpointREST(OpenShare)).Methods("POST")
@@ -30,6 +31,7 @@ func configureRoutes(router *mux.Router) {
 
 	router.Handle("/shares/stats", EndpointREST(Stats)).Methods("GET")
 	router.Handle("/share/{id}/stats", EndpointREST(ShareStats)).Methods("GET")
+	router.Handle("/jobs/", EndpointREST(Jobs)).Methods("GET")
 }
 
 func StartServer() {

@@ -84,3 +84,7 @@ func EnqueueJob(task *asynq.Task, at *time.Time) error {
 	}
 	return nil
 }
+
+func GetJobs() (interface{}, error) {
+	return nil, nil
+}

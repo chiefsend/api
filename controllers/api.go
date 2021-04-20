@@ -581,3 +581,11 @@ func ShareStats(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	return sendJSON(w, res)
 }
+
+func Jobs(w http.ResponseWriter, r *http.Request) *HTTPError {
+	res, err := background.GetJobs()
+	if err != nil {
+		return &HTTPError{err, "can't get background jobs", 500}
+	}
+	return sendJSON(w, res)
+}
