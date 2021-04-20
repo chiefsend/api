@@ -2,6 +2,7 @@ package background
 
 import (
 	"github.com/hibiken/asynq"
+	//"github.com/hibiken/asynq/tools"
 	"log"
 	"os"
 	"strconv"
@@ -53,6 +54,7 @@ func StartBackgroundWorkers() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(DeleteShare, HandleDeleteShareTask)
 	mux.HandleFunc(ShareEmail, HandleShareEmailTask)
+	mux.HandleFunc(ContinuousDelete, HandleContinuousDeleteTask)
 	// run server
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)
