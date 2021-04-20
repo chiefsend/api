@@ -510,20 +510,74 @@ func DeleteAttachment(w http.ResponseWriter, r *http.Request) *HTTPError {
 /////////////////////////////////////////////////////
 
 func Stats(w http.ResponseWriter, r *http.Request) *HTTPError {
-	type Stat struct {
-		NumberOfShares int `json:"number_of_shares"`
+	// admin auth
+	if auth, err := CheckBearerAuth(r); err != nil || auth == false {
+		return &HTTPError{err, "Authentication Failed", 401}
 	}
-	var stat Stat
-	stat.NumberOfShares = 5
-
-	return sendJSON(w, stat)
+	// get database
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+	// get share
+	var shares []m.Share
+	err = db.Preload("Attachments").Find(&shares).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &HTTPError{err, "record not found", 404}
+	}
+	if err != nil {
+		return &HTTPError{err, "Can't fetch data", 500}
+	}
+	// collect data
+	var ts int64
+	for _, sh := range shares {
+		for _, att := range sh.Attachments {
+			ts += att.Filesize
+		}
+	}
+	// return data
+	var res = struct {
+		NumberOfShares int `json:"number_of_shares"`
+		TotalSize      int64 `json:"total_size"`
+	}{
+		NumberOfShares: len(shares),
+		TotalSize: ts,
+	}
+	return sendJSON(w, res)
 }
 
 func ShareStats(w http.ResponseWriter, r *http.Request) *HTTPError {
-	type Stat struct {
-		Heat []int `json:"heat"`
+	// parse url
+	vars := mux.Vars(r)
+	shareID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		return &HTTPError{err, "invalid URL param", 400}
 	}
-	return sendJSON(w, Stat{
+	// admin auth
+	if auth, err := CheckBearerAuth(r); err != nil || auth == false {
+		return &HTTPError{err, "Authentication Failed", 401}
+	}
+	// get database
+	db, err := m.GetDatabase()
+	if err != nil {
+		return &HTTPError{err, "Can't connect to database", 500}
+	}
+	// get share
+	var share m.Share
+	err = db.Preload("Attachments").Where("ID = ?", shareID).First(&share).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &HTTPError{err, "record not found", 404}
+	}
+	if err != nil {
+		return &HTTPError{err, "Can't fetch data", 500}
+	}
+	// get data
+	// TODO
+	// return
+	var res = struct {
+		Heat []int `json:"heat"`
+	}{
 		Heat: []int{1, 2, 3, 4},
-	})
+	}
+	return sendJSON(w, res)
 }
