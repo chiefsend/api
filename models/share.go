@@ -9,13 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Share has many Attachments, ShareID is the foreign key
 type Share struct {
-	ID uuid.UUID `json:"id"  gorm:"primary_key"`
-	//CreatedAt time.Time `json:"-"`
-	//UpdatedAt time.Time `json:"-"`
+	ID        uuid.UUID `json:"id"  gorm:"primary_key"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"-"`
 
 	Name          null.String `json:"name,omitempty"`
 	Expires       null.Time   `json:"expires,omitempty"`

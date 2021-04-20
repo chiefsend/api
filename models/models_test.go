@@ -6,6 +6,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 	"log"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -23,6 +24,7 @@ func TestMain(m *testing.M) {
 
 func TestCreateShare(t *testing.T) {
 	t.Run("few null values", func(t *testing.T) {
+		db, _ := GetDatabase()
 		uhr := time.Date(2020, 01, 01, 17, 17, 17, 324359102, time.UTC)
 		var expected = Share{
 			ID:            uuid.MustParse("1e21e633-7936-4dd5-9de5-43ed1c413d8a"),
@@ -30,37 +32,34 @@ func TestCreateShare(t *testing.T) {
 			Expires:       null.TimeFrom(uhr),
 			DownloadLimit: null.IntFrom(123),
 			IsPublic:      true,
-			Password:    null.StringFrom("test123"),
+			Password:      null.StringFrom("test123"),
 			Emails:        []string{"test@example.com"},
 			IsTemporary:   true,
+			CreatedAt:     uhr,
+			UpdatedAt:     uhr,
 		}
-		db, _ := GetDatabase()
 		db.Create(&expected)
 		defer db.Delete(&expected)
 		var actual Share
-		db.Where("id=?", "1e21e633-7936-4dd5-9de5-43ed1c413d8a").First(&actual)
+		db.Where("id=?", expected.ID.String()).First(&actual)
 		// assertions
 		assert.Equal(t, expected, actual)
+		assert.DirExists(t, filepath.Join(os.Getenv("MEDIA_DIR"), "temp", actual.ID.String()))
 	})
-
-	t.Run("many null values", func(t *testing.T) {
-		var expected = Share{
-			ID:            uuid.MustParse("1e21e633-7936-4dd5-9de5-43ed1c413d8a"),
-		}
-		db, _ := GetDatabase()
-		db.Create(&expected)
-		defer db.Delete(&expected)
-		var actual Share
-		db.Where("id=?", "1e21e633-7936-4dd5-9de5-43ed1c413d8a").First(&actual)
-		// assertions
-		assert.Equal(t, expected, actual)
-	})
-
-
 }
 
 func TestReadShare(t *testing.T) {
-	return
+	var sh = Share{
+		ID: uuid.MustParse("1e21e633-7936-4dd5-9de5-43ed1c413d8a"),
+	}
+	db, _ := GetDatabase()
+	db.Create(&sh)
+	defer db.Delete(&sh)
+	db.Model(&sh).Update("Name", "Test123")
+	var actual Share
+	db.Where("id=?", sh.ID.String()).First(&actual)
+	// assertions
+	assert.Equal(t, null.StringFrom("Test123"), sh.Name)
 }
 
 func TestUpdateShare(t *testing.T) {
@@ -68,7 +67,14 @@ func TestUpdateShare(t *testing.T) {
 }
 
 func TestDeleteShare(t *testing.T) {
-	return
+	var sh = Share{
+		ID: uuid.MustParse("1e21e633-7936-4dd5-9de5-43ed1c413d8a"),
+	}
+	db, _ := GetDatabase()
+	db.Create(&sh)
+	db.Delete(&sh)
+	// assertions
+	assert.NoDirExists(t, filepath.Join(os.Getenv("MEDIA_DIR"), "temp", sh.ID.String()))
 }
 
 ////////////////////////////////////////////

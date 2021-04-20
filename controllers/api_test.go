@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Parse and Reparse Share in JSON to simulate transmission
@@ -372,8 +373,11 @@ func TestDeleteShare(t *testing.T) {
 }
 
 func TestUpdateShare(t *testing.T) {
+	uhr := time.Date(1,1,1,1,1,1,1,time.UTC)
 	var sh = m.Share{
 		ID: uuid.MustParse("f43b0e48-13cc-4c6c-8a23-3a18a670effd"),
+		CreatedAt: uhr,
+		UpdatedAt: uhr,
 	}
 	db.Create(&sh)
 	defer db.Delete(&sh)
@@ -388,6 +392,7 @@ func TestUpdateShare(t *testing.T) {
 		// parse
 		var actual m.Share
 		db.Where("ID = ?", sh.ID.String()).First(&actual)
+		actual.UpdatedAt = uhr
 		// assertions
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 		assert.Equal(t, sh, actual)
