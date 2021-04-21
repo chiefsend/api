@@ -31,7 +31,7 @@ func configureRoutes(router *mux.Router) {
 
 	router.Handle("/shares/stats", EndpointREST(Stats)).Methods("GET")
 	router.Handle("/share/{id}/stats", EndpointREST(ShareStats)).Methods("GET")
-	router.Handle("/jobs/", EndpointREST(Jobs)).Methods("GET")
+	router.Handle("/jobs", EndpointREST(Jobs)).Methods("GET")
 }
 
 func StartServer() {

@@ -2,7 +2,7 @@ package background
 
 import (
 	"github.com/hibiken/asynq"
-	//"github.com/hibiken/asynq/tools"
+	"github.com/hibiken/asynq/inspeq"
 	"log"
 	"os"
 	"strconv"
@@ -87,6 +87,14 @@ func EnqueueJob(task *asynq.Task, at *time.Time) error {
 	return nil
 }
 
-func GetJobs() (interface{}, error) {
-	return nil, nil
+func GetJobs() ([]*inspeq.SchedulerEntry, error) {
+	// get inspector
+	i := inspeq.New(redis)
+	defer i.Close()
+	// get jobs
+	jobs, err := i.SchedulerEntries()
+	if err != nil {
+		return nil, err
+	}
+	return jobs, nil
 }

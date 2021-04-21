@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type HTTPError struct {
@@ -583,9 +584,21 @@ func ShareStats(w http.ResponseWriter, r *http.Request) *HTTPError {
 }
 
 func Jobs(w http.ResponseWriter, r *http.Request) *HTTPError {
-	res, err := background.GetJobs()
+	type job struct {
+		ID string `json:"string"`
+		Name string `json:"name"`
+		Execution time.Time `json:"execution"`
+	}
+	var res []job
+	jobs, err := background.GetJobs()
 	if err != nil {
 		return &HTTPError{err, "can't get background jobs", 500}
+	}
+	for _, j := range jobs {
+		res = append(res, job{
+			ID: j.ID,
+			//Name: j.Task.
+		})
 	}
 	return sendJSON(w, res)
 }
