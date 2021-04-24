@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -345,6 +346,13 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 		if basic, err := CheckBasicAuth(r, share); err != nil || basic == false {
 			return &HTTPError{err, "Unauthorized", 401}
 		}
+	}
+	// set filename
+	if share.Name.Valid {
+		filename := strings.ReplaceAll(share.Name.String, " ", "_")
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", filename))
+	} else {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", share.ID.String()))
 	}
 	// create and send zip
 	zipWriter := zip.NewWriter(w)
