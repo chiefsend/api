@@ -58,7 +58,7 @@ func AllShares(w http.ResponseWriter, r *http.Request) *HTTPError {
 	// get shares
 	var shares []m.Share
 	if admin {
-		err = db.Find(&shares).Error
+		err = db.Preload("Attachments").Find(&shares).Error
 	} else {
 		err = db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
 	}
