@@ -36,7 +36,18 @@ func configureRoutes(router *mux.Router) {
 
 func StartServer() {
 	router := mux.NewRouter()
-	handler := cors.AllowAll().Handler(router)
+	//handler := cors.AllowAll().Handler(router)
+	handler := cors.New(cors.Options{ /// Access-Control-Expose-Headers: Content-Disposition
+		AllowedOrigins:         []string{"*"}, // FIXME
+		AllowedMethods:         []string{"GET", "POST", "DELETE", "PUT"},
+		AllowedHeaders:         []string{"Content-Disposition", "*"}, // FIXME
+		ExposedHeaders:         []string{"Content-Disposition", "*"}, // FIXME
+		MaxAge:                 0, // no max age
+		AllowCredentials:       true,
+		OptionsPassthrough:     false, // kp
+		Debug:                  false,
+	}).Handler(router)
+
 	configureRoutes(router)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handlers.LoggingHandler(os.Stdout, handler)))
 }
