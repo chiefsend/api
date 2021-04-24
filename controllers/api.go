@@ -60,7 +60,7 @@ func AllShares(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if admin {
 		err = db.Preload("Attachments").Find(&shares).Error
 	} else {
-		err = db.Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
+		err = db.Preload("Attachments").Where("is_public = 1 AND is_temporary = 0").Find(&shares).Error
 	}
 	if err != nil {
 		return &HTTPError{err, "Can't fetch data", 500}
