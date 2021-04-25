@@ -202,6 +202,7 @@ func TestDownloadFile(t *testing.T) {
 	}
 
 	t.Run("happy path", func(t *testing.T) {
+		// TODO assert download_limit is decreased
 		// request
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/share/%s/attachment/%s", url, sh.ID.String(), sh.Attachments[0].ID.String()), nil)
 		req.SetBasicAuth(sh.ID.String(), "test123")

@@ -160,6 +160,12 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) *HTTPError {
 			return &HTTPError{err, "Unauthorized", 401}
 		}
 	}
+	// reduce download limit
+	if share.DownloadLimit.Valid {
+		if err := db.Model(&share).Update("download_limit", share.DownloadLimit.Int64-1).Error; err != nil {
+			return &HTTPError{err, "Error editing share object", 500}
+		}
+	}
 	// send file
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", att.Filename))
 	http.ServeFile(w, r, filepath.Join(os.Getenv("MEDIA_DIR"), "data", shareID.String(), attID.String()))
@@ -345,6 +351,12 @@ func DownloadZip(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if !admin {
 		if basic, err := CheckBasicAuth(r, share); err != nil || basic == false {
 			return &HTTPError{err, "Unauthorized", 401}
+		}
+	}
+	// reduce download limit
+	if share.DownloadLimit.Valid {
+		if err := db.Model(&share).Update("download_limit", share.DownloadLimit.Int64-1).Error; err != nil {
+			return &HTTPError{err, "Error editing share object", 500}
 		}
 	}
 	// set filename
@@ -546,11 +558,11 @@ func Stats(w http.ResponseWriter, r *http.Request) *HTTPError {
 	}
 	// return data
 	var res = struct {
-		NumberOfShares int `json:"number_of_shares"`
+		NumberOfShares int   `json:"number_of_shares"`
 		TotalSize      int64 `json:"total_size"`
 	}{
 		NumberOfShares: len(shares),
-		TotalSize: ts,
+		TotalSize:      ts,
 	}
 	return sendJSON(w, res)
 }
@@ -593,8 +605,8 @@ func ShareStats(w http.ResponseWriter, r *http.Request) *HTTPError {
 
 func Jobs(w http.ResponseWriter, r *http.Request) *HTTPError {
 	type job struct {
-		ID string `json:"string"`
-		Name string `json:"name"`
+		ID        string    `json:"string"`
+		Name      string    `json:"name"`
 		Execution time.Time `json:"execution"`
 	}
 	var res []job
