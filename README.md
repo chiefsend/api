@@ -38,9 +38,43 @@ Note: Create a database called "ChiefSend" beforehand
 
 Other databases may work if you use the MySQL or PostgreSQL dialect.
 
-## Building and deploying the API
+## Building
 ```
 go build -o chiefsend-api .
+```
+
+## Testing
+```
+go test ./...
+```
+
+## Running
+```
+./chiefsend-api
+```
+
+## Deploying
+```
+sudo systemctl enable chiefsend-api
+sudo systemctl start chiefsend-api
+```
+
+Example systemd service (/etc/systemd/system):
+```
+[Unit]
+Description=ChiefSend API Service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=<USER>
+Group=<USER>
+WorkingDirectory=<REPO_PATH>
+ExecStart=<REPO_PATH>/chiefsend-api
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 ## Configuring a reverse Proxy (nginx)

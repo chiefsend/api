@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/chiefsend/api/background"
 	"github.com/chiefsend/api/controllers"
 	m "github.com/chiefsend/api/models"
@@ -44,7 +43,8 @@ func main() {
 		log.Fatal(err)
 	}
 	// start the server(s)
-	fmt.Println("Lets go!")
+	log.Print("Starting background workers")
 	go background.StartBackgroundWorkers()
+	log.Print("Starting Server")
 	controllers.StartServer()
 }
