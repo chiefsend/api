@@ -36,3 +36,4 @@ log*
 *.htpasswd
 *.env
 .env
+api
