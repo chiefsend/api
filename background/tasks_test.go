@@ -27,9 +27,9 @@ func TestMain(m *testing.M) {
 
 func TestHandleDeleteShareTask(t *testing.T) {
 	var share = models.Share{
-		ID:            uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
-		IsPublic:      false,
-		IsTemporary:   false,
+		ID:          uuid.MustParse("5713d228-a042-446d-a5e4-183b19fa832a"),
+		IsPublic:    false,
+		IsTemporary: false,
 	}
 	db.Create(&share)
 	defer db.Delete(&share)
@@ -49,15 +49,15 @@ func TestHandleDeleteShareTask(t *testing.T) {
 }
 
 func TestHandleContinuousDeleteTask(t *testing.T) {
-	var shares = []models.Share {
+	var shares = []models.Share{
 		{
-			ID: uuid.MustParse("9788fedd-d840-4ad5-9824-05fa3d59b686"),
-			CreatedAt: time.Now().Add(-30*time.Hour), // should be deleted
+			ID:          uuid.MustParse("9788fedd-d840-4ad5-9824-05fa3d59b686"),
+			CreatedAt:   time.Now().Add(-30 * time.Hour), // should be deleted
 			IsTemporary: true,
 		},
 		{
-			ID: uuid.MustParse("b8b4d8f2-0a58-4400-ad41-a6f39b82e9da"),
-			CreatedAt: time.Now().Add(-10*time.Hour), // should not be deleted
+			ID:          uuid.MustParse("b8b4d8f2-0a58-4400-ad41-a6f39b82e9da"),
+			CreatedAt:   time.Now().Add(-10 * time.Hour), // should not be deleted
 			IsTemporary: true,
 		},
 	}

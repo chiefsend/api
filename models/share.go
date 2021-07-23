@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -23,8 +22,6 @@ type Share struct {
 	DownloadLimit null.Int    `json:"download_limit,omitempty"`
 	IsPublic      bool        `json:"is_public"  gorm:"not null; default:false; index"`
 	Password      null.String `json:"password,omitempty"`
-	Emails        []string    `json:"emails,omitempty" gorm:"-"`
-	EMailsDB      string      `json:"-"`
 	IsTemporary   bool        `json:"is_temporary,omitempty"`
 
 	Attachments []Attachment `json:"files,omitempty"  gorm:"constraint:OnDelete:CASCADE"`
@@ -42,13 +39,6 @@ func (sh *Share) Secure() {
 	if sh.Password.Valid {
 		sh.Password.SetValid("")
 	}
-}
-
-func (sh *Share) AfterFind(tx *gorm.DB) error {
-	if sh.EMailsDB != "" {
-		sh.Emails = strings.Split(sh.EMailsDB, ";")
-	}
-	return nil
 }
 
 func (sh *Share) BeforeCreate(tx *gorm.DB) error {
@@ -73,8 +63,6 @@ func (sh *Share) BeforeCreate(tx *gorm.DB) error {
 			return nil
 		}
 	}
-	//convert email addresses
-	sh.EMailsDB = strings.Join(sh.Emails, ";")
 	// hash password
 	if sh.Password.Valid {
 		if hash, err := bcrypt.GenerateFromPassword([]byte(sh.Password.ValueOrZero()), bcrypt.DefaultCost); err != nil {

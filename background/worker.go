@@ -53,7 +53,6 @@ func StartBackgroundWorkers() {
 	// setup tasks
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(DeleteShare, HandleDeleteShareTask)
-	mux.HandleFunc(ShareEmail, HandleShareEmailTask)
 	mux.HandleFunc(ContinuousDelete, HandleContinuousDeleteTask)
 	// run server
 	if err := srv.Run(mux); err != nil {

@@ -33,7 +33,6 @@ func TestCreateShare(t *testing.T) {
 			DownloadLimit: null.IntFrom(123),
 			IsPublic:      true,
 			Password:      null.StringFrom("test123"),
-			Emails:        []string{"test@example.com"},
 			IsTemporary:   true,
 			CreatedAt:     uhr,
 			UpdatedAt:     uhr,

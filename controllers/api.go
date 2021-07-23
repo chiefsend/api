@@ -235,13 +235,7 @@ func CloseShare(w http.ResponseWriter, r *http.Request) *HTTPError {
 	if err := db.Model(&share).Update("is_temporary", false).Error; err != nil {
 		return &HTTPError{err, "Can't edit data", 500}
 	}
-	// run some background jobs
-	// send email
-	mailTask := background.NewShareEmailTask(share)
-	if err := background.EnqueueJob(mailTask, nil); err != nil {
-		return &HTTPError{err, "Can't start send eMail background task", 500}
-	}
-	// delete share
+	// put share in deletion queue
 	if share.Expires.Valid {
 		deleteTask := background.NewDeleteShareTask(share)
 		at := share.Expires.ValueOrZero()
