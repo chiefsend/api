@@ -29,9 +29,6 @@ type EndpointREST func(http.ResponseWriter, *http.Request) *HTTPError
 
 func (fn EndpointREST) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil { // e is *HTTPError, not os.Error.
-		if e.Code == 401 {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Please enter the password"`)
-		}
 		if e.Error != nil {
 			http.Error(w, fmt.Sprintf("%s - %s", e.Message, e.Error.Error()), e.Code)
 		} else {
