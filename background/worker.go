@@ -36,14 +36,14 @@ func StartBackgroundWorkers() {
 	// create server
 	var workers int
 	{
-		workerss := os.Getenv("BACKGROUND_WORKERS")
-		if workerss == "" {
+		workerCount := os.Getenv("BACKGROUND_WORKERS")
+		if workerCount == "" {
 			workers = 5
 		} else {
-			if workersi, err := strconv.Atoi(workerss); err != nil {
+			if workersInt, err := strconv.Atoi(workerCount); err != nil {
 				log.Fatal(err)
 			} else {
-				workers = workersi
+				workers = workersInt
 			}
 		}
 	}
@@ -55,6 +55,7 @@ func StartBackgroundWorkers() {
 	mux.HandleFunc(DeleteShare, HandleDeleteShareTask)
 	mux.HandleFunc(ContinuousDelete, HandleContinuousDeleteTask)
 	// run server
+	// FIXME forward signal (SIGINT, SIGTERM to main thread)
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)
 	}
@@ -62,10 +63,6 @@ func StartBackgroundWorkers() {
 
 func StopBackgroundWorkers() {
 	srv.Stop()
-	// FIXME signals
-	//signalChan := make(chan os.Signal, 1)
-	//signal.Notify(signalChan, os.Interrupt, os.Kill)
-	//<-signalChan
 }
 
 func EnqueueJob(task *asynq.Task, at *time.Time) error {

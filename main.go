@@ -43,8 +43,8 @@ func main() {
 		log.Fatal(err)
 	}
 	// start the server(s)
-	log.Print("Starting background workers")
+	log.Print("starting background workers ...")
 	go background.StartBackgroundWorkers()
-	log.Print("Starting Server")
+	log.Print("starting server ...")
 	controllers.StartServer()
 }
