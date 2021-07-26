@@ -1,11 +1,14 @@
 package background
 
 import (
+	"fmt"
 	"github.com/hibiken/asynq"
 	"github.com/hibiken/asynq/inspeq"
 	"log"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -55,8 +58,15 @@ func StartBackgroundWorkers() {
 	mux.HandleFunc(DeleteShare, HandleDeleteShareTask)
 	mux.HandleFunc(ContinuousDelete, HandleContinuousDeleteTask)
 	// run server
-	// FIXME forward signal (SIGINT, SIGTERM to main thread)
-	if err := srv.Run(mux); err != nil {
+	if err := srv.Start(mux); err != nil {
+		log.Fatal(err)
+	}
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, os.Kill)
+	<-signals
+	StopBackgroundWorkers()
+	fmt.Println("stopped background workers ...")
+	if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
 		log.Fatal(err)
 	}
 }

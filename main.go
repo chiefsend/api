@@ -45,6 +45,7 @@ func main() {
 	// start the server(s)
 	log.Print("starting background workers ...")
 	go background.StartBackgroundWorkers()
+
 	log.Print("starting server ...")
 	controllers.StartServer()
 }
