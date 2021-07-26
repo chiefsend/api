@@ -13,9 +13,10 @@ https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
 - **Media Storage**: Is just a folder in a filesystem
 - **API Server**: Takes and processes all the HTTP requests
 - **Background Job Worker**: Starts with the API Server and handles slow tasks, like scheduled deletion of a share.
-- **Reverse Proxy (nginx)**: Takes care of exposing the api to the outside world
 
 ## Environment Variables:
+
+Set them up in a `.env` file in the root of this repository
 
 - `PORT`: the port the api listens to (required, example: 6969).
 - `DATABASE_DIALECT`: the database dialect (supported: mysql | postgres | sqlite | mssql | clickhouse)
@@ -29,7 +30,8 @@ https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
 
 ## Supported Databases:
 
-Note: Create a database called "ChiefSend" beforehand
+Note: The Database has to be created beforehand. The Schema can be created automatically by passing `-auto-migrate=true`
+flag to the program at start
 
 - MySQL - example dsn: `user:pass@tcp(127.0.0.1:3306)/ChiefSend?charset=utf8mb4&parseTime=True&loc=Local`
 - PostgreSQL - example
@@ -58,68 +60,3 @@ go test ./...
 ```
 ./chiefsend-api
 ```
-
-## Deploying
-
-```
-sudo systemctl enable chiefsend-api
-sudo systemctl start chiefsend-api
-```
-
-Example systemd service (/etc/systemd/system):
-
-```
-[Unit]
-Description=ChiefSend API Service
-
-[Service]
-Type=simple
-Restart=always
-RestartSec=1
-User=<USER>
-Group=<USER>
-WorkingDirectory=<REPO_PATH>
-ExecStart=<REPO_PATH>/chiefsend-api
-
-[Install]
-WantedBy=multi-user.target
-```
-
-## Configuring a reverse Proxy (nginx)
-
-In order to have HTTPS we can setup a reverse proxy with nginx. Example configuration might look like this (Replace the
-items in <> brackets):
-
-```
-server {
-    listen 80;
-    listen [::]:80;
-    server_name <DOMAIN>;
-
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name <DOMAIN>;
-
-    ssl_certificate /etc/letsencrypt/live/<DOMAIN>/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/<DOMAIN>/privkey.pem; # managed by Certbot
-
-    if ($http_host !~ "^<DOMAIN>"){
-        rewrite ^(.*)$ $scheme://<DOMAIN>/$1 redirect;
-    }
-
-    gzip on;
-    gzip_types
-        text/plain
-        application/json
-
-    location /api/ {
-        proxy_pass http://localhost:<PORT>/;
-    }
-}
-```
-
-Don't forget to set up your SSL certificates.

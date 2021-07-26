@@ -5,6 +5,7 @@
 *.so
 *.dylib
 chiefsend-api
+api
 
 # Test binary, built with `go test -c`
 *.test
@@ -36,4 +37,8 @@ log*
 *.htpasswd
 *.env
 .env
-api
+
+# database
+*.sqlite
+*.db3
+*.db
