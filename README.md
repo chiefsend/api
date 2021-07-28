@@ -2,6 +2,12 @@
 
 RESTful API for ChiefSend written in Go
 
+## Quick Build
+
+```
+sh build.sh
+```
+
 ## Documentation
 
 https://app.swaggerhub.com/apis-docs/chiefsend/ChiefSend/1.0
@@ -21,7 +27,7 @@ Set them up in a `.env` file in the root of this repository
 - `PORT`: the port the api listens to (required, example: 6969).
 - `DATABASE_DIALECT`: the database dialect (supported: mysql | postgres | sqlite | mssql | clickhouse)
 - `DATABASE_URI`: the dsn string with all details for db connection (required)
-- `MEDIA_DIR`: the path where the files should be saved (required, absolute path)
+- `MEDIA_DIR`: the path where the files should be saved (required, absolute path)\*\*\*\*
 - `REDIS_URI`: redis uri (required, example: localhost:6379)
 - `REDIS_DB`: number of redis db (required, valid: 0..15)
 - `REDIS_PASSWORD`: redis password (optional, omit if none)
